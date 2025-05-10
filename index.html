@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML5 Breakout</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>HTML5 Breakout</h1>
+    <canvas id="gameCanvas"></canvas>
+    <div class="controls-info">
+        <h2>Controls:</h2>
+        <ul>
+            <li><strong>Left/Right Arrows:</strong> Move Paddle</li>
+            <li><strong>Up/Down Arrows:</strong> Change Ball Speed</li>
+            <li><strong>A:</strong> Toggle Auto-Follow Paddle</li>
+            <li><strong>Space:</strong> Teleport Ball to Paddle (moves up)</li>
+            <li><strong>N:</strong> New Game (retains speed, resets score)</li>
+        </ul>
+        <p id="autoFollowStatus">Auto-Follow: OFF</p>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
