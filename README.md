@@ -6,7 +6,8 @@
 
 A classic brick breaker game built with pure JavaScript and HTML5 Canvas. Features include adaptive paddle speed, auto-follow mode, angle-based bouncing, and a polished collision system for bricks, walls, and the paddle.
 
-![Screenshot](screenshot.png)
+### Game
+![Game 1](screenshots/game_1.png)
 
 ---
 
