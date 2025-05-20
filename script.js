@@ -1,20 +1,17 @@
 // Initialize canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const gameArea = document.getElementById('gameArea'); // Get gameArea for touch controls
+const gameArea = document.getElementById('gameArea'); 
 
 // Screen dimensions
 const SCREEN_WIDTH = 800;
 const SCREEN_HEIGHT = 600;
 canvas.width = SCREEN_WIDTH;
 canvas.height = SCREEN_HEIGHT;
-// Ensure gameArea dimensions match canvas if set fixed in CSS
-// or set them dynamically here if canvas dimensions can change.
 if (gameArea) {
     gameArea.style.width = SCREEN_WIDTH + 'px';
     gameArea.style.height = SCREEN_HEIGHT + 'px';
 }
-
 
 // Brick properties
 const BRICK_WIDTH = 60;
@@ -64,7 +61,12 @@ let score = 0;
 let autoFollowMode = false;
 let running = true;
 let animationFrameId;
-let paddleMoveDirectionTouch = 0; // -1 for left, 1 for right, 0 for no touch movement
+let paddleMoveDirectionTouch = 0; 
+
+// Touch Controls Visibility
+let touchControlsAreVisible = true; // Start with touch controls visible
+let touchLeftEl, touchRightEl; // To store references to touch control DOM elements
+
 
 // Counters
 let horizontal_bounce_counter = 0;
@@ -80,7 +82,7 @@ let new_game_timeout_id = null;
 // DOM Elements
 const autoFollowStatusElement = document.getElementById('autoFollowStatus');
 
-// --- HELPER FUNCTIONS --- (Mostly unchanged, ensureNonHorizontal, sanityCheckBallPosition, etc.)
+// --- HELPER FUNCTIONS ---
 function updateBallSpeedComponents() {
     const angle = Math.atan2(ball.dy, ball.dx);
     ball.dx = ball.speed * Math.cos(angle);
@@ -90,7 +92,7 @@ function updateBallSpeedComponents() {
 function toggleAutoFollow() {
     autoFollowMode = !autoFollowMode;
     autoFollowStatusElement.textContent = `Auto-Follow: ${autoFollowMode ? 'ON' : 'OFF'}`;
-    if (autoFollowMode) { // Stop any touch-initiated movement if auto-follow is on
+    if (autoFollowMode) { 
         paddleMoveDirectionTouch = 0;
     }
 }
@@ -287,7 +289,6 @@ function handleBrickCollisions() {
 
 
 // --- GAME LOGIC ---
-// MODIFIED: resetGame now correctly handles score and speed retention.
 function resetGame(keepScore = false, retainSpeed = null) {
     if (new_game_timeout_id) {
         clearTimeout(new_game_timeout_id);
@@ -317,7 +318,7 @@ function resetGame(keepScore = false, retainSpeed = null) {
 
     if (!keepScore) {
         score = 0;
-        global_start_time = Date.now(); // Reset global playtime only on full new game (first game)
+        global_start_time = Date.now(); 
     }
 
     horizontal_bounce_counter = 0;
@@ -325,7 +326,7 @@ function resetGame(keepScore = false, retainSpeed = null) {
     same_height_bounces = 0;
     consecutive_horizontal_moves = 0;
     previous_ball_centery = ball.y;
-    paddleMoveDirectionTouch = 0; // Reset touch movement
+    paddleMoveDirectionTouch = 0; 
 
     running = true;
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
@@ -337,7 +338,6 @@ document.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
     keysPressed[key] = true;
 
-    // Prevent default for space and arrow keys to avoid page scrolling
     if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
         e.preventDefault();
     }
@@ -349,15 +349,17 @@ document.addEventListener('keydown', (e) => {
         ball.dy = teleportResult[1];
     }
     if (key === 'n') {
-        // Retain current ball speed and score
         resetGame(true, ball.speed); 
+    }
+    if (key === 't') { // Toggle touch controls visibility
+        toggleTouchControls();
     }
 });
 document.addEventListener('keyup', (e) => {
     keysPressed[e.key.toLowerCase()] = false;
 });
 
-function handleInput() { // This function now mostly handles key-press events that aren't continuous
+function handleInput() { 
     if (keysPressed['arrowup']) {
         ball.speed = Math.min(ball.speed + 0.1, DEFAULT_BALL_SPEED * 3);
         updateBallSpeedComponents();
@@ -372,35 +374,31 @@ function handleInput() { // This function now mostly handles key-press events th
 
 
 function update() {
-    handleInput(); // Process non-continuous inputs
+    handleInput(); 
 
-    // Paddle Movement Logic (Keyboard and Touch)
     if (!autoFollowMode) {
         let netPaddleMovement = 0;
         if (keysPressed['arrowleft']) {
             netPaddleMovement = -1;
         } else if (keysPressed['arrowright']) {
             netPaddleMovement = 1;
-        } else if (paddleMoveDirectionTouch !== 0) { // Use touch if no keys are pressed for paddle
+        } else if (paddleMoveDirectionTouch !== 0) { 
             netPaddleMovement = paddleMoveDirectionTouch;
         }
 
         if (netPaddleMovement !== 0) {
             paddle.x += netPaddleMovement * paddle.speed;
-            // Clamp paddle position
             if (paddle.x < 0) paddle.x = 0;
             if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
         }
     }
 
 
-    // Move ball
     ball.x += ball.dx;
     ball.y += ball.dy;
 
     [ball.dx, ball.dy] = sanityCheckBallPosition(ball.dx, ball.dy);
 
-    // Wall collisions
     if (ball.x + ball.radius > SCREEN_WIDTH || ball.x - ball.radius < 0) {
         ball.dx = -ball.dx;
         ball.x = (ball.x - ball.radius < 0) ? ball.radius : SCREEN_WIDTH - ball.radius; 
@@ -425,10 +423,9 @@ function update() {
         horizontal_bounce_counter = 0; 
     }
 
-    // Bottom wall (Game Over)
     if (ball.y + ball.radius > SCREEN_HEIGHT) {
         console.log("Game Over - Ball hit the bottom!");
-        running = false; // Current ball.speed is preserved for next game if 'N' is pressed
+        running = false; 
         ctx.font = "40px Arial";
         ctx.fillStyle = "orange";
         ctx.textAlign = "center";
@@ -439,14 +436,12 @@ function update() {
         return;
     }
 
-    // Paddle auto-follow
     if (autoFollowMode) {
         paddle.x = ball.x - paddle.width / 2;
         if (paddle.x < 0) paddle.x = 0;
         if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
     }
 
-    // Paddle collision
     if (ball.dy > 0 && 
         ball.y + ball.radius >= paddle.y &&
         ball.y - ball.radius <= paddle.y + paddle.height && 
@@ -493,6 +488,25 @@ function gameLoop() {
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
+// --- TOUCH CONTROLS VISIBILITY ---
+function updateTouchControlsAppearance() {
+    if (touchLeftEl && touchRightEl) {
+        if (touchControlsAreVisible) {
+            touchLeftEl.classList.remove('hidden');
+            touchRightEl.classList.remove('hidden');
+        } else {
+            touchLeftEl.classList.add('hidden');
+            touchRightEl.classList.add('hidden');
+        }
+    }
+}
+
+function toggleTouchControls() {
+    touchControlsAreVisible = !touchControlsAreVisible;
+    updateTouchControlsAppearance();
+}
+
+
 // --- BUTTON CONTROLS SETUP ---
 function setupButtonControls() {
     const btnMoveLeft = document.getElementById('btnMoveLeft');
@@ -502,26 +516,22 @@ function setupButtonControls() {
     const btnToggleAutoFollow = document.getElementById('btnToggleAutoFollow');
     const btnTeleportBall = document.getElementById('btnTeleportBall');
     const btnNewGame = document.getElementById('btnNewGame');
+    const btnToggleTouch = document.getElementById('btnToggleTouch'); // New button
 
-    // Event listeners for moving paddle via buttons (for non-touch/non-keyboard moments)
-    // Note: These are single-step moves. For continuous, mousedown/up would be needed.
-    // The current update loop handles continuous movement from keyboard/touch.
-    // These buttons can act as a single nudge.
     if (btnMoveLeft) {
         btnMoveLeft.addEventListener('click', () => {
             if (!autoFollowMode && paddle.x > 0) {
-                paddle.x = Math.max(0, paddle.x - paddle.speed * 2); // Nudge a bit more
+                paddle.x = Math.max(0, paddle.x - paddle.speed * 2); 
             }
         });
     }
     if (btnMoveRight) {
         btnMoveRight.addEventListener('click', () => {
             if (!autoFollowMode && paddle.x + paddle.width < SCREEN_WIDTH) {
-                 paddle.x = Math.min(SCREEN_WIDTH - paddle.width, paddle.x + paddle.speed * 2); // Nudge
+                 paddle.x = Math.min(SCREEN_WIDTH - paddle.width, paddle.x + paddle.speed * 2); 
             }
         });
     }
-
 
     if (btnIncreaseSpeed) {
         btnIncreaseSpeed.addEventListener('click', () => {
@@ -549,24 +559,23 @@ function setupButtonControls() {
     }
     if (btnNewGame) {
         btnNewGame.addEventListener('click', () => {
-            // Retain current ball speed and score
             resetGame(true, ball.speed); 
         });
     }
+    if (btnToggleTouch) { // Add listener for the new button
+        btnToggleTouch.addEventListener('click', toggleTouchControls);
+    }
 }
 
-// --- NEW TOUCH CONTROLS SETUP ---
+// --- TOUCH CONTROLS SETUP ---
 function setupTouchControls() {
-    const touchLeft = document.getElementById('touchControlLeft');
-    const touchRight = document.getElementById('touchControlRight');
+    // Store references to the touch control elements
+    touchLeftEl = document.getElementById('touchControlLeft');
+    touchRightEl = document.getElementById('touchControlRight');
 
-    if (!touchLeft || !touchRight) return; // Safety check
+    updateTouchControlsAppearance(); // Set initial visibility
 
-    // Show touch controls - CSS can also handle this with @media (hover: none)
-    // Forcing them visible for testing if CSS method is not working:
-    // touchLeft.style.opacity = '1';
-    // touchRight.style.opacity = '1';
-
+    if (!touchLeftEl || !touchRightEl) return; 
 
     const handleTouchStart = (direction) => {
         if (!autoFollowMode) {
@@ -579,26 +588,26 @@ function setupTouchControls() {
     };
 
     // Left Touch Control
-    touchLeft.addEventListener('mousedown', (e) => { e.preventDefault(); handleTouchStart(-1); });
-    touchLeft.addEventListener('mouseup', (e) => { e.preventDefault(); handleTouchEnd(); });
-    touchLeft.addEventListener('mouseleave', (e) => { e.preventDefault(); handleTouchEnd(); }); // If mouse slides off
-    touchLeft.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart(-1); }, { passive: false });
-    touchLeft.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
-    touchLeft.addEventListener('touchcancel', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
+    touchLeftEl.addEventListener('mousedown', (e) => { e.preventDefault(); handleTouchStart(-1); });
+    touchLeftEl.addEventListener('mouseup', (e) => { e.preventDefault(); handleTouchEnd(); });
+    touchLeftEl.addEventListener('mouseleave', (e) => { e.preventDefault(); handleTouchEnd(); }); 
+    touchLeftEl.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart(-1); }, { passive: false });
+    touchLeftEl.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
+    touchLeftEl.addEventListener('touchcancel', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
 
     // Right Touch Control
-    touchRight.addEventListener('mousedown', (e) => { e.preventDefault(); handleTouchStart(1); });
-    touchRight.addEventListener('mouseup', (e) => { e.preventDefault(); handleTouchEnd(); });
-    touchRight.addEventListener('mouseleave', (e) => { e.preventDefault(); handleTouchEnd(); }); // If mouse slides off
-    touchRight.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart(1); }, { passive: false });
-    touchRight.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
-    touchRight.addEventListener('touchcancel', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
+    touchRightEl.addEventListener('mousedown', (e) => { e.preventDefault(); handleTouchStart(1); });
+    touchRightEl.addEventListener('mouseup', (e) => { e.preventDefault(); handleTouchEnd(); });
+    touchRightEl.addEventListener('mouseleave', (e) => { e.preventDefault(); handleTouchEnd(); }); 
+    touchRightEl.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart(1); }, { passive: false });
+    touchRightEl.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
+    touchRightEl.addEventListener('touchcancel', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
 }
 
 
 // --- INITIALIZE AND START GAME ---
 document.addEventListener('DOMContentLoaded', () => {
-    resetGame(); // Start the game (score 0, default speed)
+    resetGame(); 
     setupButtonControls(); 
     setupTouchControls(); 
 });

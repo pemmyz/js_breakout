@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <!-- Added user-scalable=no for better touch experience -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>JavaScript Brick Breaker Game</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -44,7 +44,11 @@
             </div>
             <!-- Single-action: New Game -->
             <div class="button-row">
-                 <button id="btnNewGame" title="New Game (N) - Retains Speed, Resets Score"><strong>N:</strong> New Game (Keep Score & Speed)</button>
+                 <button id="btnNewGame" title="New Game (N) - Retains Speed, Cumulates Score"><strong>N:</strong> New Game (Keep Score & Speed)</button>
+            </div>
+            <!-- Single-action: Toggle Touch Controls -->
+            <div class="button-row">
+                 <button id="btnToggleTouch" title="Toggle Touchscreen Controls (T)"><strong>T:</strong> Toggle Touch Controls</button>
             </div>
         </div>
         <p id="autoFollowStatus">Auto-Follow: OFF</p>

@@ -34,64 +34,56 @@ canvas {
 
 .touch-control {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 30%; /* Cover 30% of the gameArea width */
-    background-color: rgba(200, 200, 200, 0.2); /* Partially see-through gray */
-    z-index: 10; /* Ensure they are above the canvas */
+    width: 70px;  /* Width of the touch button */
+    height: 40px; /* Height of the touch button */
+    bottom: 15px; /* Position from the bottom of gameArea */
+    background-color: rgba(128, 128, 128, 0.35); /* Grey with 35% opacity for the background itself */
+    z-index: 10; 
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 3em; /* Size of the arrow characters */
-    color: rgba(255, 255, 255, 0.4); /* Semi-transparent white for arrows */
-    user-select: none; /* Prevent text selection on tap */
-    -webkit-user-select: none; /* Safari */
-    -moz-user-select: none; /* Firefox */
-    -ms-user-select: none; /* IE */
-    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
-    opacity: 0; /* Hidden by default, shown on touch devices potentially or always if preferred */
-    transition: opacity 0.3s ease;
+    font-size: 2.5em; /* Size of the arrow characters, adjust as needed */
+    color: rgba(255, 255, 255, 0.6); /* Arrows are 60% opaque white */
+    user-select: none; 
+    -webkit-user-select: none; 
+    -moz-user-select: none; 
+    -ms-user-select: none; 
+    -webkit-tap-highlight-color: transparent; 
+    opacity: 1; /* Element itself is fully opaque initially, controlled by .hidden class */
+    border-radius: 4px; /* Rounded corners for the small buttons */
+    transition: background-color 0.2s ease, opacity 0.3s ease, transform 0.3s ease; /* Added transform */
 }
 
-/* Show touch controls if the device supports touch */
-@media (hover: none) and (pointer: coarse) {
-    .touch-control {
-        opacity: 1; /* Show on touch devices */
-    }
+.touch-control.hidden {
+    opacity: 0;
+    pointer-events: none; /* Crucial: makes them non-interactive when hidden */
+    transform: translateY(10px); /* Optional: slight move down when hiding */
 }
-/* Or, to always show them, remove the @media query and set opacity: 1 directly */
-/* .touch-control { opacity: 1; } */
-
 
 #touchControlLeft {
-    left: 0;
-    border-top-left-radius: 5px; /* Match canvas radius */
-    border-bottom-left-radius: 5px;
+    left: 15px; /* Position from the left of gameArea */
 }
-#touchControlLeft:hover {
-    background-color: rgba(200, 200, 200, 0.3);
+#touchControlLeft:hover, #touchControlLeft:active {
+    background-color: rgba(128, 128, 128, 0.5); 
 }
 
 
 #touchControlRight {
-    right: 0;
-    border-top-right-radius: 5px; /* Match canvas radius */
-    border-bottom-right-radius: 5px;
+    right: 15px; /* Position from the right of gameArea */
 }
-#touchControlRight:hover {
-    background-color: rgba(200, 200, 200, 0.3);
+#touchControlRight:hover, #touchControlRight:active {
+    background-color: rgba(128, 128, 128, 0.5); 
 }
 
 
 .controls-info {
-    /* margin-top is handled by gameArea's margin-bottom */
     padding: 15px;
-    background-color: #34495e; /* Darker blue-gray */
+    background-color: #34495e; 
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
     width: 80%;
-    max-width: 780px; /* Match canvas width roughly */
+    max-width: 780px; 
     text-align: left;
 }
 
@@ -105,7 +97,7 @@ canvas {
 #autoFollowStatus {
     margin-top: 10px;
     font-weight: bold;
-    color: #1abc9c; /* Teal */
+    color: #1abc9c; 
 }
 
 .button-controls-container {
