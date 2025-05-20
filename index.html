@@ -2,19 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <!-- Added user-scalable=no for better touch experience -->
     <title>JavaScript Brick Breaker Game</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <h1>JavaScript Brick Breaker Game</h1>
-    <canvas id="gameCanvas"></canvas>
+
+    <div id="gameArea">
+        <canvas id="gameCanvas"></canvas>
+        <div id="touchControlLeft" class="touch-control"><span>◀</span></div>
+        <div id="touchControlRight" class="touch-control"><span>▶</span></div>
+    </div>
+
     <div class="controls-info">
         <h2>Controls:</h2>
         <div class="button-controls-container">
             <!-- Multi-action: Paddle -->
             <div class="button-row">
-                <span class="control-description"><strong>Left/Right Arrows:</strong> Move Paddle</span>
+                <span class="control-description"><strong>Left/Right Arrows (or Tap Screen Sides):</strong> Move Paddle</span>
                 <div class="action-buttons">
                     <button id="btnMoveLeft" title="Move Paddle Left (ArrowLeft)">Move Left</button>
                     <button id="btnMoveRight" title="Move Paddle Right (ArrowRight)">Move Right</button>
@@ -38,7 +44,7 @@
             </div>
             <!-- Single-action: New Game -->
             <div class="button-row">
-                 <button id="btnNewGame" title="New Game (N)"><strong>N:</strong> New Game</button>
+                 <button id="btnNewGame" title="New Game (N) - Retains Speed, Resets Score"><strong>N:</strong> New Game (Keep Score & Speed)</button>
             </div>
         </div>
         <p id="autoFollowStatus">Auto-Follow: OFF</p>

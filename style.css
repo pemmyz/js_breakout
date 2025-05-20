@@ -8,6 +8,7 @@ body {
     background-color: #2c3e50; /* Dark blue-gray */
     color: #ecf0f1; /* Light gray */
     min-height: 100vh;
+    overflow-x: hidden; /* Prevent horizontal scrollbars if gameArea is too wide for small screens */
 }
 
 h1 {
@@ -15,15 +16,76 @@ h1 {
     margin-bottom: 15px;
 }
 
+#gameArea {
+    position: relative; /* For absolute positioning of touch controls */
+    width: 800px; /* Should match canvas width */
+    height: 600px; /* Should match canvas height */
+    margin-bottom: 20px; /* Space before controls-info */
+}
+
 canvas {
+    display: block; /* Removes extra space below canvas if it's inline */
     border: 3px solid #ecf0f1; /* Light gray border */
     background-color: #000000; /* Black background */
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
     border-radius: 5px;
+    /* width and height are set by JS */
 }
 
+.touch-control {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 30%; /* Cover 30% of the gameArea width */
+    background-color: rgba(200, 200, 200, 0.2); /* Partially see-through gray */
+    z-index: 10; /* Ensure they are above the canvas */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3em; /* Size of the arrow characters */
+    color: rgba(255, 255, 255, 0.4); /* Semi-transparent white for arrows */
+    user-select: none; /* Prevent text selection on tap */
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE */
+    -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+    opacity: 0; /* Hidden by default, shown on touch devices potentially or always if preferred */
+    transition: opacity 0.3s ease;
+}
+
+/* Show touch controls if the device supports touch */
+@media (hover: none) and (pointer: coarse) {
+    .touch-control {
+        opacity: 1; /* Show on touch devices */
+    }
+}
+/* Or, to always show them, remove the @media query and set opacity: 1 directly */
+/* .touch-control { opacity: 1; } */
+
+
+#touchControlLeft {
+    left: 0;
+    border-top-left-radius: 5px; /* Match canvas radius */
+    border-bottom-left-radius: 5px;
+}
+#touchControlLeft:hover {
+    background-color: rgba(200, 200, 200, 0.3);
+}
+
+
+#touchControlRight {
+    right: 0;
+    border-top-right-radius: 5px; /* Match canvas radius */
+    border-bottom-right-radius: 5px;
+}
+#touchControlRight:hover {
+    background-color: rgba(200, 200, 200, 0.3);
+}
+
+
 .controls-info {
-    margin-top: 20px;
+    /* margin-top is handled by gameArea's margin-bottom */
     padding: 15px;
     background-color: #34495e; /* Darker blue-gray */
     border-radius: 8px;
@@ -40,32 +102,12 @@ canvas {
     padding-bottom: 5px;
 }
 
-/* Removed old ul/li styles as they are no longer used for controls */
-/*
-.controls-info ul {
-    list-style: none;
-    padding-left: 0;
-}
-
-.controls-info li {
-    margin-bottom: 8px;
-    font-size: 0.95em;
-}
-
-.controls-info li strong {
-    color: #f1c40f; 
-    display: inline-block;
-    width: 180px; 
-}
-*/
-
 #autoFollowStatus {
     margin-top: 10px;
     font-weight: bold;
     color: #1abc9c; /* Teal */
 }
 
-/* --- New Button Styles --- */
 .button-controls-container {
     margin-top: 15px;
 }
@@ -74,55 +116,51 @@ canvas {
     margin-bottom: 12px;
 }
 
-.control-description { /* Used for multi-action rows */
+.control-description {
     display: block;
     margin-bottom: 6px;
     font-size: 0.95em;
-    color: #ecf0f1; /* Standard text color */
+    color: #ecf0f1;
 }
 
-.control-description strong { /* Key part of the description */
-    color: #f1c40f; /* Yellow */
+.control-description strong {
+    color: #f1c40f;
 }
 
-.action-buttons { /* Container for multiple buttons like Left/Right */
+.action-buttons {
     display: flex;
-    gap: 8px; /* Creates space between flex items */
+    gap: 8px;
 }
 
 .action-buttons button {
-    flex-grow: 1; /* Make buttons share space */
-    /* width is implicitly auto here, flex-grow distributes */
+    flex-grow: 1;
 }
 
-/* Base style for all control buttons */
 .button-controls-container button {
-    background-color: #5D6D7E; /* Mid-tone blue-gray */
-    color: #ecf0f1; /* Light gray text */
-    border: 1px solid #7F8C8D; /* Slightly lighter border */
-    padding: 10px 15px; /* Decent padding for clickability */
-    border-radius: 5px; /* Matched canvas border-radius */
+    background-color: #5D6D7E;
+    color: #ecf0f1;
+    border: 1px solid #7F8C8D;
+    padding: 10px 15px;
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 0.9em; /* Consistent font size */
-    font-family: 'Arial', sans-serif; /* Ensure font matches */
+    font-size: 0.9em;
+    font-family: 'Arial', sans-serif;
     transition: background-color 0.2s ease, transform 0.1s ease;
-    box-sizing: border-box; /* Important for width calculations */
+    box-sizing: border-box;
     text-align: center;
-    width: 100%; /* Buttons in single-action rows will take full width */
-                 /* For buttons in .action-buttons, flex properties manage width */
+    width: 100%;
 }
 
 .button-controls-container button:hover {
-    background-color: #718497; /* Slightly lighter blue-gray for hover */
+    background-color: #718497;
 }
 
 .button-controls-container button:active {
-    background-color: #4A5B6A; /* Darker on active */
-    transform: translateY(1px); /* Slight press effect */
+    background-color: #4A5B6A;
+    transform: translateY(1px);
 }
 
-/* For <strong> tags within any button (like "A:", "Space:") */
 .button-controls-container button strong {
-    color: #f1c40f; /* Yellow, like original strong tags */
-    margin-right: 5px; /* Space between key and description text */
+    color: #f1c40f;
+    margin-right: 5px;
 }
