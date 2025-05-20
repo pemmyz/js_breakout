@@ -40,6 +40,8 @@ canvas {
     padding-bottom: 5px;
 }
 
+/* Removed old ul/li styles as they are no longer used for controls */
+/*
 .controls-info ul {
     list-style: none;
     padding-left: 0;
@@ -51,13 +53,76 @@ canvas {
 }
 
 .controls-info li strong {
-    color: #f1c40f; /* Yellow */
+    color: #f1c40f; 
     display: inline-block;
-    width: 180px; /* Adjust as needed for alignment */
+    width: 180px; 
 }
+*/
 
 #autoFollowStatus {
     margin-top: 10px;
     font-weight: bold;
     color: #1abc9c; /* Teal */
+}
+
+/* --- New Button Styles --- */
+.button-controls-container {
+    margin-top: 15px;
+}
+
+.button-row {
+    margin-bottom: 12px;
+}
+
+.control-description { /* Used for multi-action rows */
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.95em;
+    color: #ecf0f1; /* Standard text color */
+}
+
+.control-description strong { /* Key part of the description */
+    color: #f1c40f; /* Yellow */
+}
+
+.action-buttons { /* Container for multiple buttons like Left/Right */
+    display: flex;
+    gap: 8px; /* Creates space between flex items */
+}
+
+.action-buttons button {
+    flex-grow: 1; /* Make buttons share space */
+    /* width is implicitly auto here, flex-grow distributes */
+}
+
+/* Base style for all control buttons */
+.button-controls-container button {
+    background-color: #5D6D7E; /* Mid-tone blue-gray */
+    color: #ecf0f1; /* Light gray text */
+    border: 1px solid #7F8C8D; /* Slightly lighter border */
+    padding: 10px 15px; /* Decent padding for clickability */
+    border-radius: 5px; /* Matched canvas border-radius */
+    cursor: pointer;
+    font-size: 0.9em; /* Consistent font size */
+    font-family: 'Arial', sans-serif; /* Ensure font matches */
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-sizing: border-box; /* Important for width calculations */
+    text-align: center;
+    width: 100%; /* Buttons in single-action rows will take full width */
+                 /* For buttons in .action-buttons, flex properties manage width */
+}
+
+.button-controls-container button:hover {
+    background-color: #718497; /* Slightly lighter blue-gray for hover */
+}
+
+.button-controls-container button:active {
+    background-color: #4A5B6A; /* Darker on active */
+    transform: translateY(1px); /* Slight press effect */
+}
+
+/* For <strong> tags within any button (like "A:", "Space:") */
+.button-controls-container button strong {
+    color: #f1c40f; /* Yellow, like original strong tags */
+    margin-right: 5px; /* Space between key and description text */
 }

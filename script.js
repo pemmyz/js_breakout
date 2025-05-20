@@ -230,7 +230,6 @@ function handleBrickCollisions() {
                     score += 10;
 
                     // Determine bounce direction (simplified: reverse appropriate velocity component)
-                    // More precise logic would check which side was hit based on ball's previous position
                     const prevBallX = ball.x - ball.dx;
                     const prevBallY = ball.y - ball.dy;
 
@@ -247,8 +246,7 @@ function handleBrickCollisions() {
                         ball.dy = -ball.dy;
                         if (hitFromTop) ball.y = brick.y - ball.radius - 0.1;
                         else ball.y = brick.y + brick.height + ball.radius + 0.1;
-                    } else { // If already inside (e.g. corner hit or high speed)
-                        // Fallback: check overlap. Smallest overlap indicates primary collision axis.
+                    } else { 
                         const overlapX = (ball.radius + brick.width / 2) - Math.abs(ball.x - (brick.x + brick.width / 2));
                         const overlapY = (ball.radius + brick.height / 2) - Math.abs(ball.y - (brick.y + brick.height / 2));
                         if (overlapX < overlapY) {
@@ -261,17 +259,16 @@ function handleBrickCollisions() {
                     [ball.dx, ball.dy] = ensureNonHorizontal(ball.dx, ball.dy);
                     same_height_bounces = 0; // Reset counter after brick hit
 
-                    // Check for win
                     if (bricks.flat().every(b => b.status === 0)) {
                         if (!new_game_timeout_id) {
                             console.log("All bricks destroyed! New game in 5s.");
                             new_game_timeout_id = setTimeout(() => {
-                                resetGame(true, ball.speed); // Keep score, retain speed
+                                resetGame(true, ball.speed); 
                                 new_game_timeout_id = null;
                             }, 5000);
                         }
                     }
-                    return; // Handle one brick collision per frame
+                    return; 
                 }
             }
         }
@@ -298,20 +295,18 @@ function resetGame(keepScore = false, retainSpeed = null) {
     } else {
         ball.speed = DEFAULT_BALL_SPEED;
     }
-    // Initial ball direction (random, somewhat downwards)
-    let initialAngle = (Math.random() * 60 + 240) * Math.PI / 180; // Between 240 and 300 deg
-    if (Math.random() < 0.5) initialAngle = (Math.random() * 60 + 30) * Math.PI / 180; // or 30-90
+    let initialAngle = (Math.random() * 60 + 240) * Math.PI / 180; 
+    if (Math.random() < 0.5) initialAngle = (Math.random() * 60 + 30) * Math.PI / 180; 
 
     ball.dx = ball.speed * Math.cos(initialAngle);
     ball.dy = ball.speed * Math.sin(initialAngle);
     [ball.dx, ball.dy] = ensureNonHorizontal(ball.dx, ball.dy);
 
-
     paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
 
     if (!keepScore) {
         score = 0;
-        global_start_time = Date.now(); // Reset global playtime only on full new game
+        global_start_time = Date.now();
     }
 
     horizontal_bounce_counter = 0;
@@ -330,11 +325,13 @@ document.addEventListener('keydown', (e) => {
     keysPressed[e.key.toLowerCase()] = true;
     if (e.key.toLowerCase() === 'a') toggleAutoFollow();
     if (e.key.toLowerCase() === ' ') {
-        e.preventDefault(); // Prevent page scroll
-        [ball.dx, ball.dy] = teleportBallToPaddle();
+        e.preventDefault(); 
+        const teleportResult = teleportBallToPaddle();
+        ball.dx = teleportResult[0];
+        ball.dy = teleportResult[1];
     }
     if (e.key.toLowerCase() === 'n') {
-        resetGame(false, ball.speed); // Retain current ball speed, but reset score
+        resetGame(false, ball.speed);
     }
 });
 document.addEventListener('keyup', (e) => {
@@ -352,33 +349,30 @@ function handleInput() {
     }
 
     if (keysPressed['arrowup']) {
-        ball.speed = Math.min(ball.speed + 0.1, DEFAULT_BALL_SPEED * 3); // Max speed cap
+        ball.speed = Math.min(ball.speed + 0.1, DEFAULT_BALL_SPEED * 3);
         updateBallSpeedComponents();
+        paddle.speed = PADDLE_SPEED_RATIO * ball.speed; // Update paddle speed
     }
     if (keysPressed['arrowdown']) {
-        ball.speed = Math.max(ball.speed - 0.1, DEFAULT_BALL_SPEED * 0.5); // Min speed cap
+        ball.speed = Math.max(ball.speed - 0.1, DEFAULT_BALL_SPEED * 0.5);
         updateBallSpeedComponents();
+        paddle.speed = PADDLE_SPEED_RATIO * ball.speed; // Update paddle speed
     }
-    paddle.speed = PADDLE_SPEED_RATIO * ball.speed; // Update paddle speed based on ball speed
+    // paddle.speed update was here, moved into individual speed changes
 }
 
 
 function update() {
     handleInput();
 
-    // Move ball
     ball.x += ball.dx;
     ball.y += ball.dy;
 
-    // Sanity check ball position (prevent sticking out of bounds)
     [ball.dx, ball.dy] = sanityCheckBallPosition(ball.dx, ball.dy);
 
-
-    // Wall collisions
-    // Left/Right walls
     if (ball.x + ball.radius > SCREEN_WIDTH || ball.x - ball.radius < 0) {
         ball.dx = -ball.dx;
-        ball.x = (ball.x - ball.radius < 0) ? ball.radius : SCREEN_WIDTH - ball.radius; // Clamp position
+        ball.x = (ball.x - ball.radius < 0) ? ball.radius : SCREEN_WIDTH - ball.radius; 
 
         horizontal_bounce_counter++;
         if (last_bounce_height !== null && Math.abs(ball.y - last_bounce_height) < 5) {
@@ -394,14 +388,12 @@ function update() {
             horizontal_bounce_counter = 0;
         }
     }
-    // Top wall
     if (ball.y - ball.radius < 0) {
-        ball.dy = Math.abs(ball.dy); // Ensure it bounces down
-        ball.y = ball.radius; // Clamp position
-        horizontal_bounce_counter = 0; // Reset horizontal counters on top/bottom hit
+        ball.dy = Math.abs(ball.dy); 
+        ball.y = ball.radius; 
+        horizontal_bounce_counter = 0; 
     }
 
-    // Bottom wall (Game Over)
     if (ball.y + ball.radius > SCREEN_HEIGHT) {
         console.log("Game Over - Ball hit the bottom!");
         running = false;
@@ -415,47 +407,42 @@ function update() {
         return;
     }
 
-    // Paddle auto-follow
     if (autoFollowMode) {
         paddle.x = ball.x - paddle.width / 2;
-        // Clamp paddle position
         if (paddle.x < 0) paddle.x = 0;
         if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
     }
 
-    // Paddle collision
-    if (ball.dy > 0 && // Ball moving down
+    if (ball.dy > 0 && 
         ball.y + ball.radius >= paddle.y &&
-        ball.y - ball.radius <= paddle.y + paddle.height && // Ensure some vertical overlap
+        ball.y - ball.radius <= paddle.y + paddle.height && 
         ball.x + ball.radius >= paddle.x &&
         ball.x - ball.radius <= paddle.x + paddle.width) {
 
         const bounce_angle = calculateBallAngle();
         ball.dx = ball.speed * Math.cos(bounce_angle);
-        ball.dy = -ball.speed * Math.sin(bounce_angle); // Negative dy to move up
+        ball.dy = -ball.speed * Math.sin(bounce_angle); 
         [ball.dx, ball.dy] = ensureNonHorizontal(ball.dx, ball.dy);
-        ball.y = paddle.y - ball.radius; // Place ball on top of paddle
+        ball.y = paddle.y - ball.radius; 
 
         horizontal_bounce_counter = 0;
         same_height_bounces = 0;
         last_bounce_height = null;
 
         if (autoFollowMode) {
-            ball.y -= 3; // Nudge ball up slightly to avoid immediate re-collision
+            ball.y -= 3; 
         }
     }
 
-    // Brick collisions
     handleBrickCollisions();
 }
 
 function draw() {
-    // Clear canvas
     ctx.fillStyle = COLOR_BLACK;
     ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     drawPaddle();
-    drawBricks(); // Draw bricks before ball so ball is on top
+    drawBricks(); 
     drawBall();
     drawScoreAndInfo();
 }
@@ -472,7 +459,75 @@ function gameLoop() {
     animationFrameId = requestAnimationFrame(gameLoop);
 }
 
+
+// --- NEW BUTTON CONTROLS SETUP ---
+function setupButtonControls() {
+    const btnMoveLeft = document.getElementById('btnMoveLeft');
+    const btnMoveRight = document.getElementById('btnMoveRight');
+    const btnIncreaseSpeed = document.getElementById('btnIncreaseSpeed');
+    const btnDecreaseSpeed = document.getElementById('btnDecreaseSpeed');
+    const btnToggleAutoFollow = document.getElementById('btnToggleAutoFollow');
+    const btnTeleportBall = document.getElementById('btnTeleportBall');
+    const btnNewGame = document.getElementById('btnNewGame');
+
+    if (btnMoveLeft) {
+        btnMoveLeft.addEventListener('click', () => {
+            if (!autoFollowMode && paddle.x > 0) {
+                paddle.x -= paddle.speed;
+                if (paddle.x < 0) paddle.x = 0; // Ensure paddle doesn't go out of bounds
+            }
+        });
+    }
+
+    if (btnMoveRight) {
+        btnMoveRight.addEventListener('click', () => {
+            if (!autoFollowMode && paddle.x + paddle.width < SCREEN_WIDTH) {
+                paddle.x += paddle.speed;
+                 // Ensure paddle doesn't go out of bounds
+                if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
+            }
+        });
+    }
+
+    if (btnIncreaseSpeed) {
+        btnIncreaseSpeed.addEventListener('click', () => {
+            ball.speed = Math.min(ball.speed + 0.1, DEFAULT_BALL_SPEED * 3);
+            updateBallSpeedComponents();
+            paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
+        });
+    }
+
+    if (btnDecreaseSpeed) {
+        btnDecreaseSpeed.addEventListener('click', () => {
+            ball.speed = Math.max(ball.speed - 0.1, DEFAULT_BALL_SPEED * 0.5);
+            updateBallSpeedComponents();
+            paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
+        });
+    }
+
+    if (btnToggleAutoFollow) {
+        btnToggleAutoFollow.addEventListener('click', () => {
+            toggleAutoFollow();
+        });
+    }
+
+    if (btnTeleportBall) {
+        btnTeleportBall.addEventListener('click', () => {
+            const teleportResult = teleportBallToPaddle();
+            ball.dx = teleportResult[0];
+            ball.dy = teleportResult[1];
+        });
+    }
+
+    if (btnNewGame) {
+        btnNewGame.addEventListener('click', () => {
+            resetGame(false, ball.speed); 
+        });
+    }
+}
+
 // --- INITIALIZE AND START GAME ---
 document.addEventListener('DOMContentLoaded', () => {
     resetGame(); // Start the game
+    setupButtonControls(); // Initialize button event listeners
 });
