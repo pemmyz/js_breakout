@@ -35,7 +35,7 @@ canvas {
 .touch-control {
     position: absolute;
     width: 70px;  /* Width of the touch button */
-    height: 40px; /* Height of the touch button */
+    height: 60px; /* Height of the touch button */
     bottom: 15px; /* Position from the bottom of gameArea */
     background-color: rgba(128, 128, 128, 0.35); /* Grey with 35% opacity for the background itself */
     z-index: 10; 
