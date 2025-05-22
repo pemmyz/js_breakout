@@ -1,7 +1,7 @@
 // Initialize canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const gameArea = document.getElementById('gameArea'); 
+const gameArea = document.getElementById('gameArea');
 
 // Screen dimensions
 const SCREEN_WIDTH = 800;
@@ -29,9 +29,10 @@ const COLOR_RED = 'red';
 const COLOR_BLUE = 'blue';
 
 // Default speeds
-const DEFAULT_BALL_SPEED = 3;
-const DEFAULT_PADDLE_SPEED = 6;
-const PADDLE_SPEED_RATIO = DEFAULT_PADDLE_SPEED / DEFAULT_BALL_SPEED;
+const DEFAULT_BALL_SPEED = 9.0; // MODIFIED: Initial speed set to 9.0
+const MAX_BALL_SPEED = 25.0;   // MODIFIED: Maximum ball speed
+const DEFAULT_PADDLE_SPEED = 6; // Base paddle speed, will be adjusted by ratio
+const PADDLE_SPEED_RATIO = DEFAULT_PADDLE_SPEED / DEFAULT_BALL_SPEED; // Recalculate ratio if DEFAULT_BALL_SPEED changed significantly from original DEFAULT_PADDLE_SPEED reference
 
 // Paddle setup
 let paddle = {
@@ -39,7 +40,7 @@ let paddle = {
     height: 10,
     x: SCREEN_WIDTH / 2 - 50,
     y: SCREEN_HEIGHT - 50,
-    speed: DEFAULT_PADDLE_SPEED
+    speed: DEFAULT_PADDLE_SPEED // Will be updated based on ball speed
 };
 
 // Ball setup
@@ -51,22 +52,25 @@ let ball = {
     dy: DEFAULT_BALL_SPEED * (Math.random() < 0.5 ? 1 : -1),
     speed: DEFAULT_BALL_SPEED
 };
-ball.speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+// Ensure initial dx/dy magnitude matches speed
+const initialAngleForBall = Math.atan2(ball.dy, ball.dx);
+ball.dx = ball.speed * Math.cos(initialAngleForBall);
+ball.dy = ball.speed * Math.sin(initialAngleForBall);
+
 
 // Bricks array
 let bricks = [];
 
 // Game state variables
 let score = 0;
-let autoFollowMode = false;
+let autoFollowMode = true; // MODIFIED: Auto-follow enabled by default
 let running = true;
 let animationFrameId;
-let paddleMoveDirectionTouch = 0; 
+let paddleMoveDirectionTouch = 0;
 
 // Touch Controls Visibility
-let touchControlsAreVisible = true; // Start with touch controls visible
-let touchLeftEl, touchRightEl; // To store references to touch control DOM elements
-
+let touchControlsAreVisible = true;
+let touchLeftEl, touchRightEl;
 
 // Counters
 let horizontal_bounce_counter = 0;
@@ -78,6 +82,10 @@ let previous_ball_centery = ball.y;
 // Time variables
 let global_start_time = Date.now();
 let new_game_timeout_id = null;
+
+// MODIFIED: Variables for initial message
+let showInitialAutomodeMessage = false;
+let initialMessageTimeoutId = null;
 
 // DOM Elements
 const autoFollowStatusElement = document.getElementById('autoFollowStatus');
@@ -91,22 +99,32 @@ function updateBallSpeedComponents() {
 
 function toggleAutoFollow() {
     autoFollowMode = !autoFollowMode;
-    autoFollowStatusElement.textContent = `Auto-Follow: ${autoFollowMode ? 'ON' : 'OFF'}`;
-    if (autoFollowMode) { 
+    if (autoFollowStatusElement) { // Ensure element exists
+        autoFollowStatusElement.textContent = `Auto-Follow: ${autoFollowMode ? 'ON' : 'OFF'}`;
+    }
+    if (autoFollowMode) {
         paddleMoveDirectionTouch = 0;
+    }
+    // MODIFIED: Hide initial message if user interacts with auto-follow
+    if (showInitialAutomodeMessage) {
+        showInitialAutomodeMessage = false;
+        if (initialMessageTimeoutId) {
+            clearTimeout(initialMessageTimeoutId);
+            initialMessageTimeoutId = null;
+        }
     }
 }
 
 function calculateBallAngle() {
     let relative_intersect_x = (ball.x - paddle.x) / paddle.width - 0.5;
-    let random_adjustment = Math.random() * 14 - 7; 
+    let random_adjustment = Math.random() * 14 - 7;
 
     let angle_deg;
-    if (relative_intersect_x > -0.05 && relative_intersect_x < 0.05) { 
+    if (relative_intersect_x > -0.05 && relative_intersect_x < 0.05) {
         angle_deg = (ball.dx > 0 ? 65 : 115) + random_adjustment;
-    } else if (relative_intersect_x < -0.05) { 
+    } else if (relative_intersect_x < -0.05) {
         angle_deg = 130 + (relative_intersect_x + 0.5) * 40;
-    } else { 
+    } else {
         angle_deg = 50 + (relative_intersect_x - 0.5) * 40;
     }
     return angle_deg * Math.PI / 180;
@@ -115,12 +133,13 @@ function calculateBallAngle() {
 function ensureNonHorizontal(dx, dy) {
     let current_speed = Math.sqrt(dx * dx + dy * dy);
     if (current_speed === 0) {
+        // Fallback to default speed if speed somehow becomes zero
         return [DEFAULT_BALL_SPEED / Math.sqrt(2) * (Math.random() < 0.5 ? 1 : -1), -DEFAULT_BALL_SPEED / Math.sqrt(2)];
     }
     let angle = Math.atan2(dy, dx);
-    if (Math.abs(Math.cos(angle)) > 0.98) { 
-        let adjustment = (Math.random() * 5 + 5) * Math.PI / 180; 
-        angle += (dy >= 0 ? adjustment : -adjustment); 
+    if (Math.abs(Math.cos(angle)) > 0.98) { // If angle is too horizontal
+        let adjustment = (Math.random() * 5 + 5) * Math.PI / 180; // 5 to 10 degrees
+        angle += (dy >= 0 ? adjustment : -adjustment); // Adjust away from horizontal
         dx = current_speed * Math.cos(angle);
         dy = current_speed * Math.sin(angle);
     }
@@ -129,15 +148,15 @@ function ensureNonHorizontal(dx, dy) {
 
 function sanityCheckBallPosition(dx, dy) {
     if (ball.x - ball.radius < 0) {
-        ball.x = ball.radius + 10; 
+        ball.x = ball.radius + 10; // Push out a bit more to avoid re-triggering
         dx = Math.abs(dx);
     } else if (ball.x + ball.radius > SCREEN_WIDTH) {
         ball.x = SCREEN_WIDTH - ball.radius - 10;
         dx = -Math.abs(dx);
     }
     if (ball.y - ball.radius < 0) {
-        ball.y = ball.radius + 10; 
-        dy = Math.abs(dy); 
+        ball.y = ball.radius + 10; // Push out a bit more
+        dy = Math.abs(dy); // Ensure it bounces down
     }
 
     if (Math.abs(ball.y - previous_ball_centery) < 1) {
@@ -149,10 +168,10 @@ function sanityCheckBallPosition(dx, dy) {
 
     if (consecutive_horizontal_moves >= 4) {
         const originalSpeed = Math.sqrt(dx * dx + dy * dy);
-        dy = originalSpeed * (Math.random() < 0.5 ? -0.3 : 0.3); 
+        dy = originalSpeed * (Math.random() < 0.5 ? -0.3 : 0.3); // Give a slight vertical nudge
         let new_dx_squared = originalSpeed * originalSpeed - dy * dy;
         dx = (dx > 0 ? 1 : -1) * Math.sqrt(Math.max(0, new_dx_squared));
-        if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1) { 
+        if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1) { // Failsafe if calculation is bad
              dx = originalSpeed * (Math.random() < 0.5 ? -1 : 1) * 0.707;
              dy = originalSpeed * (Math.random() < 0.5 ? -1 : 1) * 0.707;
         }
@@ -163,11 +182,11 @@ function sanityCheckBallPosition(dx, dy) {
 
 function teleportBallToPaddle() {
     ball.x = paddle.x + paddle.width / 2;
-    ball.y = paddle.y - ball.radius - 5; 
-    return [0, -ball.speed]; 
+    ball.y = paddle.y - ball.radius - 5; // Place slightly above paddle
+    return [0, -ball.speed]; // Launch straight up
 }
 
-// --- DRAW FUNCTIONS --- (Unchanged)
+// --- DRAW FUNCTIONS ---
 function drawPaddle() {
     ctx.beginPath();
     ctx.rect(paddle.x, paddle.y, paddle.width, paddle.height);
@@ -194,7 +213,7 @@ function createBricks() {
                 y: r * (BRICK_HEIGHT + BRICK_PADDING) + BRICK_OFFSET_TOP,
                 width: BRICK_WIDTH,
                 height: BRICK_HEIGHT,
-                status: 1 
+                status: 1
             };
         }
     }
@@ -223,10 +242,18 @@ function drawScoreAndInfo() {
 
     const global_elapsed_time = (Date.now() - global_start_time) / 1000;
     ctx.fillText(`Playtime: ${global_elapsed_time.toFixed(1)}s`, 10, SCREEN_HEIGHT - 10);
+
+    // MODIFIED: Draw initial automode message if flag is set
+    if (showInitialAutomodeMessage) {
+        ctx.font = '20px Arial';
+        ctx.fillStyle = 'yellow';
+        ctx.textAlign = 'center';
+        ctx.fillText("Automode enabled. Press 'A' to toggle.", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 100);
+    }
 }
 
 
-// --- COLLISION DETECTION --- (Unchanged)
+// --- COLLISION DETECTION ---
 function handleBrickCollisions() {
     for (let r = 0; r < BRICK_ROWS; r++) {
         for (let c = 0; c < BRICK_COLS; c++) {
@@ -258,10 +285,10 @@ function handleBrickCollisions() {
                         ball.dy = -ball.dy;
                         if (hitFromTop) ball.y = brick.y - ball.radius - 0.1;
                         else ball.y = brick.y + brick.height + ball.radius + 0.1;
-                    } else { 
+                    } else { // Corner hit or ambiguous - simpler logic
                         const overlapX = (ball.radius + brick.width / 2) - Math.abs(ball.x - (brick.x + brick.width / 2));
                         const overlapY = (ball.radius + brick.height / 2) - Math.abs(ball.y - (brick.y + brick.height / 2));
-                        if (overlapX < overlapY) {
+                        if (overlapX < overlapY) { // Less overlap in X means side hit is more likely
                             ball.dx = -ball.dx;
                         } else {
                             ball.dy = -ball.dy;
@@ -269,18 +296,18 @@ function handleBrickCollisions() {
                     }
 
                     [ball.dx, ball.dy] = ensureNonHorizontal(ball.dx, ball.dy);
-                    same_height_bounces = 0; 
+                    same_height_bounces = 0; // Reset counter
 
                     if (bricks.flat().every(b => b.status === 0)) {
                         if (!new_game_timeout_id) {
                             console.log("All bricks destroyed! New game in 5s.");
                             new_game_timeout_id = setTimeout(() => {
-                                resetGame(true, ball.speed); 
+                                resetGame(true, ball.speed); // Keep score and current speed
                                 new_game_timeout_id = null;
                             }, 5000);
                         }
                     }
-                    return; 
+                    return; // Process one brick collision per frame
                 }
             }
         }
@@ -295,6 +322,11 @@ function resetGame(keepScore = false, retainSpeed = null) {
         new_game_timeout_id = null;
     }
 
+    // MODIFIED: Update auto-follow status text based on current (possibly initial) state
+    if (autoFollowStatusElement) {
+        autoFollowStatusElement.textContent = `Auto-Follow: ${autoFollowMode ? 'ON' : 'OFF'}`;
+    }
+
     createBricks();
     paddle.x = SCREEN_WIDTH / 2 - paddle.width / 2;
     paddle.y = SCREEN_HEIGHT - 50;
@@ -305,28 +337,48 @@ function resetGame(keepScore = false, retainSpeed = null) {
     if (retainSpeed !== null) {
         ball.speed = retainSpeed;
     } else {
-        ball.speed = DEFAULT_BALL_SPEED;
+        ball.speed = DEFAULT_BALL_SPEED; // MODIFIED: Uses new default 9.0
     }
-    let initialAngle = (Math.random() * 60 + 240) * Math.PI / 180; 
-    if (Math.random() < 0.5) initialAngle = (Math.random() * 60 + 30) * Math.PI / 180; 
+    // Ensure consistent launch angle, avoiding too horizontal/vertical
+    let initialAngle = (Math.random() * 60 + 240) * Math.PI / 180; // Between 240 and 300 deg (downward left)
+    if (Math.random() < 0.5) initialAngle = (Math.random() * 60 + 30) * Math.PI / 180; // Between 30 and 90 deg (downward right)
 
     ball.dx = ball.speed * Math.cos(initialAngle);
-    ball.dy = ball.speed * Math.sin(initialAngle);
+    ball.dy = ball.speed * Math.sin(initialAngle); // dy should be positive for downward
+    if (ball.dy < 0) ball.dy = -ball.dy; // Ensure downward
     [ball.dx, ball.dy] = ensureNonHorizontal(ball.dx, ball.dy);
 
+
     paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
+    if (paddle.speed < 3) paddle.speed = 3; // Minimum paddle speed
+
 
     if (!keepScore) {
         score = 0;
-        global_start_time = Date.now(); 
+        global_start_time = Date.now();
+        // MODIFIED: Show initial message only for a completely new game (not 'N' restart)
+        showInitialAutomodeMessage = true;
+        if (initialMessageTimeoutId) clearTimeout(initialMessageTimeoutId);
+        initialMessageTimeoutId = setTimeout(() => {
+            showInitialAutomodeMessage = false;
+            initialMessageTimeoutId = null;
+        }, 5000); // Show for 5 seconds
+    } else {
+        // If 'N' is pressed (keepScore = true), ensure the message is not shown again
+        showInitialAutomodeMessage = false;
+        if (initialMessageTimeoutId) {
+            clearTimeout(initialMessageTimeoutId);
+            initialMessageTimeoutId = null;
+        }
     }
+
 
     horizontal_bounce_counter = 0;
     last_bounce_height = null;
     same_height_bounces = 0;
     consecutive_horizontal_moves = 0;
     previous_ball_centery = ball.y;
-    paddleMoveDirectionTouch = 0; 
+    paddleMoveDirectionTouch = 0;
 
     running = true;
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
@@ -339,7 +391,7 @@ document.addEventListener('keydown', (e) => {
     keysPressed[key] = true;
 
     if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
-        e.preventDefault();
+        e.preventDefault(); // Prevent page scrolling for game keys
     }
 
     if (key === 'a') toggleAutoFollow();
@@ -349,9 +401,9 @@ document.addEventListener('keydown', (e) => {
         ball.dy = teleportResult[1];
     }
     if (key === 'n') {
-        resetGame(true, ball.speed); 
+        resetGame(true, ball.speed); // Keep score, retain current speed
     }
-    if (key === 't') { // Toggle touch controls visibility
+    if (key === 't') {
         toggleTouchControls();
     }
 });
@@ -359,22 +411,24 @@ document.addEventListener('keyup', (e) => {
     keysPressed[e.key.toLowerCase()] = false;
 });
 
-function handleInput() { 
+function handleInput() { // Called every frame in update()
     if (keysPressed['arrowup']) {
-        ball.speed = Math.min(ball.speed + 0.1, DEFAULT_BALL_SPEED * 3);
+        ball.speed = Math.min(ball.speed + 0.1, MAX_BALL_SPEED); // MODIFIED: Use MAX_BALL_SPEED
         updateBallSpeedComponents();
         paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
+        if (paddle.speed < 3) paddle.speed = 3;
     }
     if (keysPressed['arrowdown']) {
-        ball.speed = Math.max(ball.speed - 0.1, DEFAULT_BALL_SPEED * 0.5);
+        ball.speed = Math.max(ball.speed - 0.1, DEFAULT_BALL_SPEED * 0.5); // Min speed is half of default
         updateBallSpeedComponents();
         paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
+        if (paddle.speed < 3) paddle.speed = 3;
     }
 }
 
 
 function update() {
-    handleInput(); 
+    handleInput(); // Process continuous key presses for speed
 
     if (!autoFollowMode) {
         let netPaddleMovement = 0;
@@ -382,7 +436,7 @@ function update() {
             netPaddleMovement = -1;
         } else if (keysPressed['arrowright']) {
             netPaddleMovement = 1;
-        } else if (paddleMoveDirectionTouch !== 0) { 
+        } else if (paddleMoveDirectionTouch !== 0) { // Touch input
             netPaddleMovement = paddleMoveDirectionTouch;
         }
 
@@ -399,33 +453,35 @@ function update() {
 
     [ball.dx, ball.dy] = sanityCheckBallPosition(ball.dx, ball.dy);
 
+    // Wall collisions
     if (ball.x + ball.radius > SCREEN_WIDTH || ball.x - ball.radius < 0) {
         ball.dx = -ball.dx;
-        ball.x = (ball.x - ball.radius < 0) ? ball.radius : SCREEN_WIDTH - ball.radius; 
+        ball.x = (ball.x - ball.radius < 0) ? ball.radius : SCREEN_WIDTH - ball.radius; // Nudge ball back in bounds
 
         horizontal_bounce_counter++;
-        if (last_bounce_height !== null && Math.abs(ball.y - last_bounce_height) < 5) {
+        if (last_bounce_height !== null && Math.abs(ball.y - last_bounce_height) < 5) { // Check if bounce height is similar
             same_height_bounces++;
         } else {
-            same_height_bounces = 1;
+            same_height_bounces = 1; // Reset if different height
         }
         last_bounce_height = ball.y;
 
-        if (same_height_bounces >= 3) {
+        if (same_height_bounces >= 3) { // If stuck bouncing horizontally at same height
             [ball.dx, ball.dy] = ensureNonHorizontal(ball.dx, ball.dy);
-            same_height_bounces = 0;
-            horizontal_bounce_counter = 0;
+            same_height_bounces = 0; // Reset counter
+            horizontal_bounce_counter = 0; // Also reset this
         }
     }
-    if (ball.y - ball.radius < 0) {
-        ball.dy = Math.abs(ball.dy); 
-        ball.y = ball.radius; 
-        horizontal_bounce_counter = 0; 
+    if (ball.y - ball.radius < 0) { // Top wall
+        ball.dy = Math.abs(ball.dy); // Ensure it bounces down
+        ball.y = ball.radius; // Nudge ball back
+        horizontal_bounce_counter = 0; // Reset counter for top/bottom bounces
     }
 
+    // Bottom wall (Game Over)
     if (ball.y + ball.radius > SCREEN_HEIGHT) {
         console.log("Game Over - Ball hit the bottom!");
-        running = false; 
+        running = false; // Stop game loop
         ctx.font = "40px Arial";
         ctx.fillStyle = "orange";
         ctx.textAlign = "center";
@@ -433,33 +489,36 @@ function update() {
         ctx.font = "24px Arial";
         ctx.fillText(`Final Score: ${score}`, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 20);
         ctx.fillText("Press 'N' to Play Again", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 60);
-        return;
+        return; // Exit update early
     }
 
+    // Auto-follow paddle movement
     if (autoFollowMode) {
         paddle.x = ball.x - paddle.width / 2;
         if (paddle.x < 0) paddle.x = 0;
         if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
     }
 
-    if (ball.dy > 0 && 
+    // Paddle collision
+    if (ball.dy > 0 && // Ball moving downwards
         ball.y + ball.radius >= paddle.y &&
-        ball.y - ball.radius <= paddle.y + paddle.height && 
+        ball.y - ball.radius <= paddle.y + paddle.height && // Ensure ball isn't already past paddle
         ball.x + ball.radius >= paddle.x &&
         ball.x - ball.radius <= paddle.x + paddle.width) {
 
         const bounce_angle = calculateBallAngle();
         ball.dx = ball.speed * Math.cos(bounce_angle);
-        ball.dy = -ball.speed * Math.sin(bounce_angle); 
+        ball.dy = -ball.speed * Math.sin(bounce_angle); // Negative dy to move upwards
         [ball.dx, ball.dy] = ensureNonHorizontal(ball.dx, ball.dy);
-        ball.y = paddle.y - ball.radius; 
+        ball.y = paddle.y - ball.radius; // Position ball directly above paddle
 
-        horizontal_bounce_counter = 0;
+        horizontal_bounce_counter = 0; // Reset horizontal bounce counters
         same_height_bounces = 0;
         last_bounce_height = null;
 
         if (autoFollowMode) {
-            ball.y -= 3; 
+            // Small nudge to prevent re-collision issues in auto-mode
+            ball.y -= 3; // Adjust if ball gets stuck
         }
     }
 
@@ -471,7 +530,7 @@ function draw() {
     ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     drawPaddle();
-    drawBricks(); 
+    drawBricks(); // Must be drawn before ball if ball can go "behind" destroyed bricks
     drawBall();
     drawScoreAndInfo();
 }
@@ -516,28 +575,29 @@ function setupButtonControls() {
     const btnToggleAutoFollow = document.getElementById('btnToggleAutoFollow');
     const btnTeleportBall = document.getElementById('btnTeleportBall');
     const btnNewGame = document.getElementById('btnNewGame');
-    const btnToggleTouch = document.getElementById('btnToggleTouch'); // New button
+    const btnToggleTouch = document.getElementById('btnToggleTouch');
 
     if (btnMoveLeft) {
         btnMoveLeft.addEventListener('click', () => {
             if (!autoFollowMode && paddle.x > 0) {
-                paddle.x = Math.max(0, paddle.x - paddle.speed * 2); 
+                paddle.x = Math.max(0, paddle.x - paddle.speed * 2); // A bit more responsive click
             }
         });
     }
     if (btnMoveRight) {
         btnMoveRight.addEventListener('click', () => {
             if (!autoFollowMode && paddle.x + paddle.width < SCREEN_WIDTH) {
-                 paddle.x = Math.min(SCREEN_WIDTH - paddle.width, paddle.x + paddle.speed * 2); 
+                 paddle.x = Math.min(SCREEN_WIDTH - paddle.width, paddle.x + paddle.speed * 2); // A bit more responsive click
             }
         });
     }
 
     if (btnIncreaseSpeed) {
         btnIncreaseSpeed.addEventListener('click', () => {
-            ball.speed = Math.min(ball.speed + 0.1, DEFAULT_BALL_SPEED * 3);
+            ball.speed = Math.min(ball.speed + 0.1, MAX_BALL_SPEED); // MODIFIED: Use MAX_BALL_SPEED
             updateBallSpeedComponents();
             paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
+            if (paddle.speed < 3) paddle.speed = 3;
         });
     }
     if (btnDecreaseSpeed) {
@@ -545,6 +605,7 @@ function setupButtonControls() {
             ball.speed = Math.max(ball.speed - 0.1, DEFAULT_BALL_SPEED * 0.5);
             updateBallSpeedComponents();
             paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
+            if (paddle.speed < 3) paddle.speed = 3;
         });
     }
     if (btnToggleAutoFollow) {
@@ -559,38 +620,37 @@ function setupButtonControls() {
     }
     if (btnNewGame) {
         btnNewGame.addEventListener('click', () => {
-            resetGame(true, ball.speed); 
+            resetGame(true, ball.speed); // Keep score, retain current speed
         });
     }
-    if (btnToggleTouch) { // Add listener for the new button
+    if (btnToggleTouch) {
         btnToggleTouch.addEventListener('click', toggleTouchControls);
     }
 }
 
 // --- TOUCH CONTROLS SETUP ---
 function setupTouchControls() {
-    // Store references to the touch control elements
     touchLeftEl = document.getElementById('touchControlLeft');
     touchRightEl = document.getElementById('touchControlRight');
 
-    updateTouchControlsAppearance(); // Set initial visibility
+    updateTouchControlsAppearance(); // Set initial visibility based on touchControlsAreVisible
 
-    if (!touchLeftEl || !touchRightEl) return; 
+    if (!touchLeftEl || !touchRightEl) return; // Exit if elements not found
 
     const handleTouchStart = (direction) => {
-        if (!autoFollowMode) {
+        if (!autoFollowMode) { // Only allow touch movement if auto-follow is off
             paddleMoveDirectionTouch = direction;
         }
     };
 
     const handleTouchEnd = () => {
-        paddleMoveDirectionTouch = 0;
+        paddleMoveDirectionTouch = 0; // Stop paddle movement
     };
 
     // Left Touch Control
     touchLeftEl.addEventListener('mousedown', (e) => { e.preventDefault(); handleTouchStart(-1); });
     touchLeftEl.addEventListener('mouseup', (e) => { e.preventDefault(); handleTouchEnd(); });
-    touchLeftEl.addEventListener('mouseleave', (e) => { e.preventDefault(); handleTouchEnd(); }); 
+    touchLeftEl.addEventListener('mouseleave', (e) => { e.preventDefault(); handleTouchEnd(); }); // Stop if mouse leaves button while pressed
     touchLeftEl.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart(-1); }, { passive: false });
     touchLeftEl.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
     touchLeftEl.addEventListener('touchcancel', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
@@ -598,7 +658,7 @@ function setupTouchControls() {
     // Right Touch Control
     touchRightEl.addEventListener('mousedown', (e) => { e.preventDefault(); handleTouchStart(1); });
     touchRightEl.addEventListener('mouseup', (e) => { e.preventDefault(); handleTouchEnd(); });
-    touchRightEl.addEventListener('mouseleave', (e) => { e.preventDefault(); handleTouchEnd(); }); 
+    touchRightEl.addEventListener('mouseleave', (e) => { e.preventDefault(); handleTouchEnd(); });
     touchRightEl.addEventListener('touchstart', (e) => { e.preventDefault(); handleTouchStart(1); }, { passive: false });
     touchRightEl.addEventListener('touchend', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
     touchRightEl.addEventListener('touchcancel', (e) => { e.preventDefault(); handleTouchEnd(); }, { passive: false });
@@ -607,7 +667,11 @@ function setupTouchControls() {
 
 // --- INITIALIZE AND START GAME ---
 document.addEventListener('DOMContentLoaded', () => {
-    resetGame(); 
-    setupButtonControls(); 
-    setupTouchControls(); 
+    // Global variables autoFollowMode and DEFAULT_BALL_SPEED are already set.
+    // resetGame will use these initial values and set up the message.
+    resetGame();
+    // The autoFollowStatusElement text is updated inside resetGame now.
+
+    setupButtonControls();
+    setupTouchControls();
 });
