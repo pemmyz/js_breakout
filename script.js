@@ -30,7 +30,7 @@ const COLOR_BLUE = 'blue';
 
 // Default speeds
 const DEFAULT_BALL_SPEED = 9.0;
-const MAX_BALL_SPEED = 25.0;
+const MAX_BALL_SPEED = 50.0; // MODIFIED: Maximum ball speed increased to 50
 const DEFAULT_PADDLE_SPEED = 6;
 const PADDLE_SPEED_RATIO = DEFAULT_PADDLE_SPEED / DEFAULT_BALL_SPEED;
 
@@ -81,6 +81,7 @@ let previous_ball_centery = ball.y;
 // Time variables
 let global_start_time = Date.now();
 let new_game_timeout_id = null;
+let autoSpeedIncreaseIntervalId = null; // MODIFIED: For auto speed increase timer
 
 let showInitialAutomodeMessage = false;
 let initialMessageTimeoutId = null;
@@ -89,6 +90,41 @@ let initialMessageTimeoutId = null;
 const autoFollowStatusElement = document.getElementById('autoFollowStatus');
 
 // --- HELPER FUNCTIONS ---
+
+// MODIFIED: Function to manage auto speed increase
+function manageAutoSpeedIncrease() {
+    if (autoFollowMode && running) {
+        if (!autoSpeedIncreaseIntervalId) { // Start if not already running
+            autoSpeedIncreaseIntervalId = setInterval(() => {
+                if (autoFollowMode && running) { // Double check inside interval
+                    if (ball.speed < MAX_BALL_SPEED) {
+                        ball.speed = Math.min(ball.speed + 5, MAX_BALL_SPEED);
+                        updateBallSpeedComponents();
+                        paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
+                        if (paddle.speed < 3) paddle.speed = 3; // Ensure min paddle speed
+                        console.log(`Auto mode: Speed increased to ${ball.speed.toFixed(1)}`);
+                    }
+                } else {
+                    // If auto mode turned off or game stopped during interval, clear it
+                    if (autoSpeedIncreaseIntervalId) {
+                        clearInterval(autoSpeedIncreaseIntervalId);
+                        autoSpeedIncreaseIntervalId = null;
+                        console.log("Auto mode: Speed increase stopped.");
+                    }
+                }
+            }, 2500); // Every 2.5 seconds
+            console.log("Auto mode: Speed increase started.");
+        }
+    } else { // If autoFollowMode is false or game not running
+        if (autoSpeedIncreaseIntervalId) { // Stop if running
+            clearInterval(autoSpeedIncreaseIntervalId);
+            autoSpeedIncreaseIntervalId = null;
+            console.log("Auto mode: Speed increase stopped.");
+        }
+    }
+}
+
+
 function updateBallSpeedComponents() {
     const angle = Math.atan2(ball.dy, ball.dx);
     ball.dx = ball.speed * Math.cos(angle);
@@ -110,6 +146,7 @@ function toggleAutoFollow() {
             initialMessageTimeoutId = null;
         }
     }
+    manageAutoSpeedIncrease(); // MODIFIED: Call to manage the timer
 }
 
 function calculateBallAngle() {
@@ -295,7 +332,7 @@ function handleBrickCollisions() {
 
                     if (bricks.flat().every(b => b.status === 0)) {
                         if (!new_game_timeout_id) {
-                            console.log("All bricks destroyed! New game in 5s.");
+                            console.log("All bricks destroyed! New game in 2.5s.");
                             new_game_timeout_id = setTimeout(() => {
                                 resetGame(true, ball.speed);
                                 new_game_timeout_id = null;
@@ -354,7 +391,7 @@ function resetGame(keepScore = false, retainSpeed = null) {
         initialMessageTimeoutId = setTimeout(() => {
             showInitialAutomodeMessage = false;
             initialMessageTimeoutId = null;
-        }, 15000); // Show for 15 seconds
+        }, 15000);
     } else {
         showInitialAutomodeMessage = false;
         if (initialMessageTimeoutId) {
@@ -374,6 +411,8 @@ function resetGame(keepScore = false, retainSpeed = null) {
     running = true;
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
     gameLoop();
+
+    manageAutoSpeedIncrease(); // MODIFIED: Manage auto speed increase on game reset
 }
 
 let keysPressed = {};
@@ -402,16 +441,12 @@ document.addEventListener('keyup', (e) => {
     keysPressed[e.key.toLowerCase()] = false;
 });
 
-// --- MOUSE CONTROLS --- (NEW FUNCTION)
+// --- MOUSE CONTROLS ---
 function handleMouseMove(e) {
-    if (!autoFollowMode) { // Only control paddle with mouse if auto-follow is OFF
+    if (!autoFollowMode) {
         const rect = canvas.getBoundingClientRect();
         let mouseX = e.clientX - rect.left;
-
-        // Center paddle under mouse
         paddle.x = mouseX - paddle.width / 2;
-
-        // Boundary checks (these will also be applied in update, but good to have here too for immediate effect)
         if (paddle.x < 0) {
             paddle.x = 0;
         }
@@ -422,7 +457,7 @@ function handleMouseMove(e) {
 }
 
 
-function handleInput() {
+function handleInput() { // For continuous key presses (speed)
     if (keysPressed['arrowup']) {
         ball.speed = Math.min(ball.speed + 0.1, MAX_BALL_SPEED);
         updateBallSpeedComponents();
@@ -430,7 +465,7 @@ function handleInput() {
         if (paddle.speed < 3) paddle.speed = 3;
     }
     if (keysPressed['arrowdown']) {
-        ball.speed = Math.max(ball.speed - 0.1, DEFAULT_BALL_SPEED * 0.5);
+        ball.speed = Math.max(ball.speed - 0.1, DEFAULT_BALL_SPEED * 0.5); // Min speed is half default
         updateBallSpeedComponents();
         paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
         if (paddle.speed < 3) paddle.speed = 3;
@@ -441,8 +476,6 @@ function handleInput() {
 function update() {
     handleInput();
 
-    // Paddle movement from keyboard/touch (only if not auto-follow and mouse hasn't recently moved it)
-    // Mouse move handler directly sets paddle.x, so this section handles keyboard/touch when mouse isn't the primary mover.
     if (!autoFollowMode) {
         let netPaddleMovement = 0;
         if (keysPressed['arrowleft']) {
@@ -453,17 +486,13 @@ function update() {
             netPaddleMovement = paddleMoveDirectionTouch;
         }
 
-        // Only apply keyboard/touch if mouse hasn't just positioned it.
-        // This logic is tricky. For now, mousemove directly sets.
-        // If mouse isn't moving, keyboard/touch take over.
+        // Mouse movement is handled by handleMouseMove directly.
+        // Keyboard/touch can still influence if mouse isn't actively used.
         if (netPaddleMovement !== 0) {
-            // Check if mouse is currently over canvas. A more robust check might be needed
-            // if we want to strictly prioritize. For now, this assumes mousemove sets,
-            // and this code runs if mouse isn't actively moving.
             paddle.x += netPaddleMovement * paddle.speed;
         }
 
-        // Boundary checks are important and should always apply after any movement
+        // Boundary checks for paddle (always apply after any movement type)
         if (paddle.x < 0) paddle.x = 0;
         if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
     }
@@ -508,6 +537,7 @@ function update() {
         ctx.font = "24px Arial";
         ctx.fillText(`Final Score: ${score}`, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 20);
         ctx.fillText("Press 'N' to Play Again", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 60);
+        manageAutoSpeedIncrease(); // MODIFIED: Ensure timer stops on game over
         return;
     }
 
@@ -681,11 +711,10 @@ function setupTouchControls() {
 
 // --- INITIALIZE AND START GAME ---
 document.addEventListener('DOMContentLoaded', () => {
-    resetGame();
+    resetGame(); // This will also call manageAutoSpeedIncrease due to autoFollowMode being true initially
 
     setupButtonControls();
     setupTouchControls();
 
-    // --- ADD MOUSE MOVE LISTENER --- (NEW)
     canvas.addEventListener('mousemove', handleMouseMove);
 });
