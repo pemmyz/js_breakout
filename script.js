@@ -299,7 +299,7 @@ function handleBrickCollisions() {
                             new_game_timeout_id = setTimeout(() => {
                                 resetGame(true, ball.speed);
                                 new_game_timeout_id = null;
-                            }, 5000);
+                            }, 2500);
                         }
                     }
                     return;
@@ -354,7 +354,7 @@ function resetGame(keepScore = false, retainSpeed = null) {
         initialMessageTimeoutId = setTimeout(() => {
             showInitialAutomodeMessage = false;
             initialMessageTimeoutId = null;
-        }, 5000);
+        }, 15000); // Show for 15 seconds
     } else {
         showInitialAutomodeMessage = false;
         if (initialMessageTimeoutId) {
