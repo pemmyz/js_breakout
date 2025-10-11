@@ -29,9 +29,9 @@ const COLOR_RED = 'red';
 const COLOR_BLUE = 'blue';
 
 // Default speeds
-const DEFAULT_BALL_SPEED = 9.0;
+const DEFAULT_BALL_SPEED = 7.0;
 const MAX_BALL_SPEED = 50.0;
-const DEFAULT_PADDLE_SPEED = 6;
+const DEFAULT_PADDLE_SPEED = 9;
 const PADDLE_SPEED_RATIO = DEFAULT_PADDLE_SPEED / DEFAULT_BALL_SPEED;
 
 // Paddle setup
@@ -67,6 +67,11 @@ let running = true;
 let animationFrameId;
 let paddleMoveDirectionTouch = 0;
 
+// Countdown variables
+let countdownActive = false;
+let countdownValue = 3;
+let countdownIntervalId = null;
+
 // Touch Controls Visibility
 let touchControlsAreVisible = true;
 let touchLeftEl, touchRightEl;
@@ -82,8 +87,7 @@ let previous_ball_centery = ball.y;
 let global_start_time = Date.now();
 let new_game_timeout_id = null;
 let autoSpeedIncreaseIntervalId = null;
-let initialAutoSpeedRampActive = false; // MODIFIED: Flag for initial speed ramp
-
+let initialAutoSpeedRampActive = false;
 let showInitialAutomodeMessage = false;
 let initialMessageTimeoutId = null;
 
@@ -92,11 +96,10 @@ const autoFollowStatusElement = document.getElementById('autoFollowStatus');
 
 // --- HELPER FUNCTIONS ---
 function manageAutoSpeedIncrease() {
-    // This function manages the +5 speed ramp which only happens on initial auto-mode start
     if (autoFollowMode && initialAutoSpeedRampActive && running) {
-        if (!autoSpeedIncreaseIntervalId) { // Start if not already running
+        if (!autoSpeedIncreaseIntervalId) {
             autoSpeedIncreaseIntervalId = setInterval(() => {
-                if (autoFollowMode && initialAutoSpeedRampActive && running) { // Re-check conditions inside interval
+                if (autoFollowMode && initialAutoSpeedRampActive && running) {
                     if (ball.speed < MAX_BALL_SPEED) {
                         let oldSpeed = ball.speed;
                         ball.speed = Math.min(ball.speed + 5, MAX_BALL_SPEED);
@@ -105,25 +108,23 @@ function manageAutoSpeedIncrease() {
                         if (paddle.speed < 3) paddle.speed = 3;
                         console.log(`Auto mode (initial ramp): Speed increased from ${oldSpeed.toFixed(1)} to ${ball.speed.toFixed(1)}`);
                         if (ball.speed >= MAX_BALL_SPEED) {
-                            initialAutoSpeedRampActive = false; // Ramp complete
+                            initialAutoSpeedRampActive = false;
                             console.log(`Auto mode (initial ramp): Reached MAX speed ${MAX_BALL_SPEED.toFixed(1)}. Ramp finished.`);
-                            // The interval will be cleared by the next call to manageAutoSpeedIncrease or by its own next check
                         }
                     } else {
-                        initialAutoSpeedRampActive = false; // Already at max, ramp is finished
+                        initialAutoSpeedRampActive = false;
                     }
-                } else { // Conditions for ramp no longer met (e.g. auto-mode off, ramp flag false, game over)
+                } else {
                     if (autoSpeedIncreaseIntervalId) {
                         clearInterval(autoSpeedIncreaseIntervalId);
                         autoSpeedIncreaseIntervalId = null;
-                        // console.log("Auto mode (initial ramp): Interval cleared due to changed conditions.");
                     }
                 }
-            }, 2500); // Every 2.5 seconds
+            }, 2500);
             console.log("Auto mode (initial ramp): +5 speed increase started.");
         }
-    } else { // Conditions for ramp are not met (e.g. auto-mode off, ramp flag false, or game not running)
-        if (autoSpeedIncreaseIntervalId) { // Stop if running
+    } else {
+        if (autoSpeedIncreaseIntervalId) {
             clearInterval(autoSpeedIncreaseIntervalId);
             autoSpeedIncreaseIntervalId = null;
             console.log("Auto mode (initial ramp): +5 speed increase stopped/paused.");
@@ -145,10 +146,9 @@ function toggleAutoFollow() {
     }
     if (autoFollowMode) {
         paddleMoveDirectionTouch = 0;
-        // If auto-mode is re-enabled, we don't automatically restart the initial ramp
-        // unless initialAutoSpeedRampActive is still true (e.g. very quick toggle at game start)
     } else {
-        initialAutoSpeedRampActive = false; // Turning off auto-mode stops the initial ramp
+        initialAutoSpeedRampActive = false;
+        console.log("Player took control: Initial auto speed ramp disabled.");
     }
 
     if (showInitialAutomodeMessage) {
@@ -307,6 +307,18 @@ function drawScoreAndInfo() {
     }
 }
 
+function drawCountdown() {
+    ctx.font = "120px Arial";
+    ctx.fillStyle = "rgba(255, 255, 0, 0.9)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(countdownValue, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 50);
+
+    ctx.font = "24px Arial";
+    ctx.fillStyle = "orange";
+    ctx.fillText(`Final Score: ${score}`, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 20);
+}
+
 
 // --- COLLISION DETECTION ---
 function handleBrickCollisions() {
@@ -365,9 +377,72 @@ function handleBrickCollisions() {
     }
 }
 
+// --- GAMEPAD CONTROLS ---
+const GAMEPAD_DEADZONE = 0.25;
+let gamepads = {};
+
+function handleGamepadConnected(e) {
+    const gp = e.gamepad;
+    console.log(`Gamepad connected at index ${gp.index}: ${gp.id}. ${gp.buttons.length} buttons, ${gp.axes.length} axes.`);
+    gamepads[gp.index] = {
+        controller: gp,
+        prevButtonStates: gp.buttons.map(b => b.pressed)
+    };
+}
+
+function handleGamepadDisconnected(e) {
+    console.log(`Gamepad disconnected from index ${e.gamepad.index}: ${e.gamepad.id}.`);
+    delete gamepads[e.gamepad.index];
+}
+
+// MODIFIED: This function now ONLY handles single-press action buttons. Movement is handled in update().
+function handleGamepadInput() {
+    const latestGamepads = navigator.getGamepads();
+    if (!latestGamepads) return;
+
+    for (const gp of latestGamepads) {
+        if (!gp || !gamepads[gp.index]) continue;
+
+        const prevStates = gamepads[gp.index].prevButtonStates;
+        const isButtonPressed = (buttonIndex) => gp.buttons[buttonIndex] && gp.buttons[buttonIndex].pressed && !prevStates[buttonIndex];
+
+        if (isButtonPressed(0)) toggleAutoFollow();
+        if (isButtonPressed(1)) { const res = teleportBallToPaddle(); ball.dx = res[0]; ball.dy = res[1]; }
+        if (isButtonPressed(9)) resetGame(true, ball.speed);
+
+        const manualSpeedChangeAction = () => {
+            updateBallSpeedComponents();
+            paddle.speed = PADDLE_SPEED_RATIO * ball.speed;
+            if (paddle.speed < 3) paddle.speed = 3;
+            if (initialAutoSpeedRampActive) {
+                console.log("Manual speed change (gamepad): Initial auto speed ramp disabled.");
+                initialAutoSpeedRampActive = false;
+                manageAutoSpeedIncrease();
+            }
+        };
+
+        if (isButtonPressed(5)) {
+            ball.speed = Math.min(ball.speed + 2.0, MAX_BALL_SPEED);
+            manualSpeedChangeAction();
+        }
+        if (isButtonPressed(4)) {
+             ball.speed = Math.max(ball.speed - 2.0, DEFAULT_BALL_SPEED * 0.5);
+             manualSpeedChangeAction();
+        }
+
+        gamepads[gp.index].prevButtonStates = gp.buttons.map(b => b.pressed);
+    }
+}
+
 
 // --- GAME LOGIC ---
 function resetGame(keepScore = false, retainSpeed = null) {
+    if (countdownIntervalId) {
+        clearInterval(countdownIntervalId);
+        countdownIntervalId = null;
+    }
+    countdownActive = false;
+
     if (new_game_timeout_id) {
         clearTimeout(new_game_timeout_id);
         new_game_timeout_id = null;
@@ -404,7 +479,7 @@ function resetGame(keepScore = false, retainSpeed = null) {
         score = 0;
         global_start_time = Date.now();
         showInitialAutomodeMessage = true;
-        initialAutoSpeedRampActive = true; // MODIFIED: Enable initial ramp for fresh game
+        initialAutoSpeedRampActive = true;
         if (initialMessageTimeoutId) clearTimeout(initialMessageTimeoutId);
         initialMessageTimeoutId = setTimeout(() => {
             showInitialAutomodeMessage = false;
@@ -412,7 +487,7 @@ function resetGame(keepScore = false, retainSpeed = null) {
         }, 15000);
     } else {
         showInitialAutomodeMessage = false;
-        initialAutoSpeedRampActive = false; // MODIFIED: Do not start ramp if keeping score/speed
+        initialAutoSpeedRampActive = false;
         if (initialMessageTimeoutId) {
             clearTimeout(initialMessageTimeoutId);
             initialMessageTimeoutId = null;
@@ -427,9 +502,10 @@ function resetGame(keepScore = false, retainSpeed = null) {
     paddleMoveDirectionTouch = 0;
 
     running = true;
-    if (animationFrameId) cancelAnimationFrame(animationFrameId);
-    gameLoop();
-    manageAutoSpeedIncrease(); // MODIFIED: Call to potentially start/stop ramp
+    if (!animationFrameId) {
+        gameLoop();
+    }
+    manageAutoSpeedIncrease();
 }
 
 let keysPressed = {};
@@ -467,8 +543,7 @@ function handleMouseMove(e) {
     }
 }
 
-// MODIFIED: handleInput and button clicks now affect initialAutoSpeedRampActive
-function handleInput() { // For continuous key presses (speed)
+function handleInput() {
     let speedChangedManually = false;
     if (keysPressed['arrowup']) {
         ball.speed = Math.min(ball.speed + 0.1, MAX_BALL_SPEED);
@@ -486,22 +561,61 @@ function handleInput() { // For continuous key presses (speed)
         if (initialAutoSpeedRampActive) {
             console.log("Manual speed change: Initial auto speed ramp disabled.");
             initialAutoSpeedRampActive = false;
-            manageAutoSpeedIncrease(); // Stop the ramp interval if it was running
+            manageAutoSpeedIncrease();
         }
     }
 }
 
 
+// MODIFIED: This function now contains all paddle movement logic for correctness.
 function update() {
-    handleInput(); // Process keyboard speed changes
+    handleGamepadInput(); // Handles action buttons
+    handleInput(); // Handles keyboard speed changes
     const ballPrevY = ball.y;
 
     if (!autoFollowMode) {
-        let netPaddleMovement = 0;
-        if (keysPressed['arrowleft']) netPaddleMovement = -1;
-        else if (keysPressed['arrowright']) netPaddleMovement = 1;
-        else if (paddleMoveDirectionTouch !== 0) netPaddleMovement = paddleMoveDirectionTouch;
-        if (netPaddleMovement !== 0) paddle.x += netPaddleMovement * paddle.speed;
+        let analogStickMovement = 0;
+        let dPadMovement = 0;
+
+        // Poll fresh gamepad data for movement THIS FRAME
+        const latestGamepads = navigator.getGamepads();
+        if (latestGamepads) {
+            for (const gp of latestGamepads) {
+                if (!gp) continue;
+                // PRIORITY 1: Analog Stick
+                if (Math.abs(gp.axes[0]) > GAMEPAD_DEADZONE) {
+                    analogStickMovement = gp.axes[0];
+                    break; // Use the first active analog stick and stop searching
+                }
+                // PRIORITY 2: D-Pad (if no analog stick movement on this controller)
+                if (gp.buttons[14] && gp.buttons[14].pressed) {
+                    dPadMovement = -1;
+                    break; // Use D-pad and stop searching
+                } else if (gp.buttons[15] && gp.buttons[15].pressed) {
+                    dPadMovement = 1;
+                    break; // Use D-pad and stop searching
+                }
+            }
+        }
+        
+        // Apply movement based on priority
+        if (analogStickMovement !== 0) {
+            // Analog movement is smooth
+            paddle.x += analogStickMovement * paddle.speed * 1.2;
+        } else {
+            // Fallback to digital inputs (D-Pad > Keyboard > Touch)
+            let netPaddleMovement = 0;
+            if (dPadMovement !== 0) netPaddleMovement = dPadMovement;
+            else if (keysPressed['arrowleft']) netPaddleMovement = -1;
+            else if (keysPressed['arrowright']) netPaddleMovement = 1;
+            else if (paddleMoveDirectionTouch !== 0) netPaddleMovement = paddleMoveDirectionTouch;
+            
+            if (netPaddleMovement !== 0) {
+                paddle.x += netPaddleMovement * paddle.speed;
+            }
+        }
+        
+        // Clamp paddle position to screen bounds
         if (paddle.x < 0) paddle.x = 0;
         if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
     }
@@ -520,17 +634,25 @@ function update() {
     [ball.dx, ball.dy] = ensureNonHorizontal(ball.dx, ball.dy);
     [ball.dx, ball.dy] = sanityCheckBallPosition(ball.dx, ball.dy);
 
-    if (ball.y + ball.radius > SCREEN_HEIGHT) {
-        console.log("Game Over - Ball hit the bottom!");
+    if (ball.y + ball.radius > SCREEN_HEIGHT && running) {
+        console.log("Game Over - Starting countdown...");
         running = false;
-        ctx.font = "40px Arial"; ctx.fillStyle = "orange"; ctx.textAlign = "center";
-        ctx.fillText("GAME OVER", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 20);
-        ctx.font = "24px Arial";
-        ctx.fillText(`Final Score: ${score}`, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 20);
-        ctx.fillText("Press 'N' to Play Again", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 60);
-        initialAutoSpeedRampActive = false; // MODIFIED: Ensure ramp stops on game over
+        initialAutoSpeedRampActive = false;
         manageAutoSpeedIncrease();
-        return;
+
+        countdownActive = true;
+        countdownValue = 3;
+
+        if (countdownIntervalId) clearInterval(countdownIntervalId);
+
+        countdownIntervalId = setInterval(() => {
+            countdownValue--;
+            if (countdownValue <= 0) {
+                clearInterval(countdownIntervalId);
+                countdownIntervalId = null;
+                resetGame(false);
+            }
+        }, 1000);
     }
 
     if (autoFollowMode) {
@@ -568,14 +690,16 @@ function draw() {
     drawBricks();
     drawBall();
     drawScoreAndInfo();
+
+    if (countdownActive) {
+        drawCountdown();
+    }
 }
 
 function gameLoop() {
-    if (!running) {
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        return;
+    if (running) {
+        update();
     }
-    update();
     draw();
     animationFrameId = requestAnimationFrame(gameLoop);
 }
@@ -618,7 +742,7 @@ function setupButtonControls() {
         if (initialAutoSpeedRampActive) {
             console.log("Manual speed change (button): Initial auto speed ramp disabled.");
             initialAutoSpeedRampActive = false;
-            manageAutoSpeedIncrease(); // Stop the ramp interval
+            manageAutoSpeedIncrease();
         }
     };
 
@@ -651,8 +775,11 @@ function setupTouchControls() {
 
 // --- INITIALIZE AND START GAME ---
 document.addEventListener('DOMContentLoaded', () => {
-    resetGame(); // autoFollowMode is true by default, initialAutoSpeedRampActive will be set true.
+    resetGame();
     setupButtonControls();
     setupTouchControls();
     canvas.addEventListener('mousemove', handleMouseMove);
+
+    window.addEventListener("gamepadconnected", handleGamepadConnected);
+    window.addEventListener("gamepaddisconnected", handleGamepadDisconnected);
 });

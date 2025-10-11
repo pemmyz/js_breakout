@@ -38,18 +38,18 @@ canvas {
     height: 60px; /* Height of the touch button */
     bottom: 15px; /* Position from the bottom of gameArea */
     background-color: rgba(128, 128, 128, 0.35); /* Grey with 35% opacity for the background itself */
-    z-index: 10; 
+    z-index: 10;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 2.5em; /* Size of the arrow characters, adjust as needed */
     color: rgba(255, 255, 255, 0.6); /* Arrows are 60% opaque white */
-    user-select: none; 
-    -webkit-user-select: none; 
-    -moz-user-select: none; 
-    -ms-user-select: none; 
-    -webkit-tap-highlight-color: transparent; 
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-tap-highlight-color: transparent;
     opacity: 1; /* Element itself is fully opaque initially, controlled by .hidden class */
     border-radius: 4px; /* Rounded corners for the small buttons */
     transition: background-color 0.2s ease, opacity 0.3s ease, transform 0.3s ease; /* Added transform */
@@ -65,7 +65,7 @@ canvas {
     left: 15px; /* Position from the left of gameArea */
 }
 #touchControlLeft:hover, #touchControlLeft:active {
-    background-color: rgba(128, 128, 128, 0.5); 
+    background-color: rgba(128, 128, 128, 0.5);
 }
 
 
@@ -73,17 +73,17 @@ canvas {
     right: 15px; /* Position from the right of gameArea */
 }
 #touchControlRight:hover, #touchControlRight:active {
-    background-color: rgba(128, 128, 128, 0.5); 
+    background-color: rgba(128, 128, 128, 0.5);
 }
 
 
 .controls-info {
     padding: 15px;
-    background-color: #34495e; 
+    background-color: #34495e;
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
     width: 80%;
-    max-width: 780px; 
+    max-width: 780px;
     text-align: left;
 }
 
@@ -94,10 +94,29 @@ canvas {
     padding-bottom: 5px;
 }
 
+.gamepad-info {
+    background-color: #2c3e50; /* A slightly different shade */
+    border: 1px solid #7f8c8d;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+}
+
+.gamepad-info p {
+    margin: 0;
+    font-size: 0.9em;
+    color: #bdc3c7; /* Lighter text color */
+}
+
+.gamepad-info strong {
+    color: #1abc9c; /* Teal color */
+}
+
+
 #autoFollowStatus {
     margin-top: 10px;
     font-weight: bold;
-    color: #1abc9c; 
+    color: #1abc9c;
 }
 
 .button-controls-container {
