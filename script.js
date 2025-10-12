@@ -76,7 +76,7 @@ let countdownIntervalId = null;
 let touchControlsAreVisible = true;
 let touchLeftEl, touchRightEl;
 
-// Counters for anti-stuck logic
+// Counters
 let horizontal_bounce_counter = 0;
 let last_bounce_height = null;
 let same_height_bounces = 0;
@@ -305,7 +305,7 @@ function drawScoreAndInfo() {
         ctx.font = '20px Arial';
         ctx.fillStyle = 'yellow';
         ctx.textAlign = 'center';
-        ctx.fillText("Automode enabled. Press 'A' or use mouse to toggle.", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 100);
+        ctx.fillText("Automode enabled. Click screen to take control.", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 100);
     }
 }
 
@@ -397,6 +397,7 @@ function handleGamepadDisconnected(e) {
     delete gamepads[e.gamepad.index];
 }
 
+// MODIFIED: This function now ONLY handles single-press action buttons. Movement is handled in update().
 function handleGamepadInput() {
     const latestGamepads = navigator.getGamepads();
     if (!latestGamepads) return;
@@ -422,11 +423,11 @@ function handleGamepadInput() {
             }
         };
 
-        if (isButtonPressed(5)) { // RB
+        if (isButtonPressed(5)) {
             ball.speed = Math.min(ball.speed + 2.0, MAX_BALL_SPEED);
             manualSpeedChangeAction();
         }
-        if (isButtonPressed(4)) { // LB
+        if (isButtonPressed(4)) {
              ball.speed = Math.max(ball.speed - 2.0, DEFAULT_BALL_SPEED * 0.5);
              manualSpeedChangeAction();
         }
@@ -533,18 +534,17 @@ document.addEventListener('keyup', (e) => {
     keysPressed[e.key.toLowerCase()] = false;
 });
 
-// --- MOUSE CONTROLS ---
+// --- MOUSE & DIRECT TOUCH CONTROLS ---
 function handleMouseMove(e) {
-    if (autoFollowMode) {
-        toggleAutoFollow();
+    // Only move the paddle if auto-follow mode is OFF.
+    if (!autoFollowMode) {
+        const rect = canvas.getBoundingClientRect();
+        let mouseX = e.clientX - rect.left;
+        paddle.x = mouseX - paddle.width / 2;
+        if (paddle.x < 0) paddle.x = 0;
+        if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
     }
-    const rect = canvas.getBoundingClientRect();
-    let mouseX = e.clientX - rect.left;
-    paddle.x = mouseX - paddle.width / 2;
-    if (paddle.x < 0) paddle.x = 0;
-    if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
 }
-
 
 function handleInput() {
     let speedChangedManually = false;
@@ -569,6 +569,8 @@ function handleInput() {
     }
 }
 
+
+// MODIFIED: This function now contains all paddle movement logic for correctness.
 function update() {
     handleGamepadInput(); // Handles action buttons
     handleInput(); // Handles keyboard speed changes
@@ -578,27 +580,34 @@ function update() {
         let analogStickMovement = 0;
         let dPadMovement = 0;
 
+        // Poll fresh gamepad data for movement THIS FRAME
         const latestGamepads = navigator.getGamepads();
         if (latestGamepads) {
             for (const gp of latestGamepads) {
                 if (!gp) continue;
+                // PRIORITY 1: Analog Stick
                 if (Math.abs(gp.axes[0]) > GAMEPAD_DEADZONE) {
                     analogStickMovement = gp.axes[0];
-                    break;
+                    break; // Use the first active analog stick and stop searching
                 }
+                // PRIORITY 2: D-Pad (if no analog stick movement on this controller)
                 if (gp.buttons[14] && gp.buttons[14].pressed) {
                     dPadMovement = -1;
-                    break;
+                    break; // Use D-pad and stop searching
                 } else if (gp.buttons[15] && gp.buttons[15].pressed) {
                     dPadMovement = 1;
-                    break;
+                    break; // Use D-pad and stop searching
                 }
             }
         }
         
+        // Apply movement based on priority (for keyboard/gamepad/buttons)
+        // Mouse and direct touch are handled by their own event listeners
         if (analogStickMovement !== 0) {
+            // Analog movement is smooth
             paddle.x += analogStickMovement * paddle.speed * 1.2;
         } else {
+            // Fallback to digital inputs (D-Pad > Keyboard > Touch Buttons)
             let netPaddleMovement = 0;
             if (dPadMovement !== 0) netPaddleMovement = dPadMovement;
             else if (keysPressed['arrowleft']) netPaddleMovement = -1;
@@ -610,11 +619,7 @@ function update() {
             }
         }
         
-        if (paddle.x < 0) paddle.x = 0;
-        if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
-    } else {
-        // Auto follow mode logic
-        paddle.x = ball.x - paddle.width / 2;
+        // Clamp paddle position to screen bounds
         if (paddle.x < 0) paddle.x = 0;
         if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
     }
@@ -652,6 +657,12 @@ function update() {
                 resetGame(false);
             }
         }, 1000);
+    }
+
+    if (autoFollowMode) {
+        paddle.x = ball.x - paddle.width / 2;
+        if (paddle.x < 0) paddle.x = 0;
+        if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
     }
 
     if (ball.dy > 0) {
@@ -755,7 +766,7 @@ function setupTouchControls() {
     updateTouchControlsAppearance();
     if (!touchLeftEl || !touchRightEl) return;
     const handleTouchStart = (direction) => { 
-        if(autoFollowMode) toggleAutoFollow();
+        if(autoFollowMode) toggleAutoFollow(); // Take control by using buttons
         paddleMoveDirectionTouch = direction; 
     };
     const handleTouchEnd = () => { paddleMoveDirectionTouch = 0; };
@@ -764,7 +775,8 @@ function setupTouchControls() {
         touchRightEl.addEventListener(evtType, (e) => { e.preventDefault(); handleTouchStart(1); }, { passive: false });
     });
     ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evtType => {
-        document.addEventListener(evtType, (e) => { 
+        // Use a global listener to ensure touch release is always caught
+        document.addEventListener(evtType, () => { 
             if (paddleMoveDirectionTouch !== 0) {
                  handleTouchEnd();
             }
@@ -776,17 +788,36 @@ function setupTouchControls() {
 document.addEventListener('DOMContentLoaded', () => {
     setupButtonControls();
     setupTouchControls();
+    
+    // Set up listeners for direct canvas control (mouse and touch)
     canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mousedown', (e) => {
-         if (autoFollowMode) {
-             e.preventDefault();
-             toggleAutoFollow();
-         }
-    });
+    canvas.addEventListener('touchmove', (e) => {
+        if (!autoFollowMode) {
+            e.preventDefault(); // Prevent page scrolling
+            if (e.touches.length > 0) {
+                const rect = canvas.getBoundingClientRect();
+                let touchX = e.touches[0].clientX - rect.left;
+                paddle.x = touchX - paddle.width / 2;
+                if (paddle.x < 0) paddle.x = 0;
+                if (paddle.x + paddle.width > SCREEN_WIDTH) paddle.x = SCREEN_WIDTH - paddle.width;
+            }
+        }
+    }, { passive: false });
 
+    // Function to activate manual control on the first click or tap on the canvas
+    const activateManualControl = (e) => {
+        if (autoFollowMode) {
+            e.preventDefault();
+            toggleAutoFollow();
+        }
+    };
+    canvas.addEventListener('mousedown', activateManualControl);
+    canvas.addEventListener('touchstart', activateManualControl, { passive: false });
 
+    // Gamepad listeners
     window.addEventListener("gamepadconnected", handleGamepadConnected);
     window.addEventListener("gamepaddisconnected", handleGamepadDisconnected);
     
+    // Start the game
     resetGame();
 });
