@@ -2,17 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <!-- REQUIRED METADATA FOR MOBILE -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>JavaScript Brick Breaker Game</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- TOGGLE BUTTON -->
+    <button id="mobile-btn">📱 Fullscreen / Mobile Controls</button>
+
     <h1>JavaScript Brick Breaker Game</h1>
 
-    <div id="gameArea">
-        <canvas id="gameCanvas"></canvas>
-        <div id="touchControlLeft" class="touch-control"><span>◀</span></div>
-        <div id="touchControlRight" class="touch-control"><span>▶</span></div>
+    <!-- GAME CONTAINER (Wraps the content to be scaled) -->
+    <div id="game-container">
+        <!-- THE SCREEN: Fixed resolution internal logic -->
+        <div id="screen">
+            <div id="gameArea">
+                <canvas id="gameCanvas"></canvas>
+                <div id="touchControlLeft" class="touch-control"><span>◀</span></div>
+                <div id="touchControlRight" class="touch-control"><span>▶</span></div>
+            </div>
+        </div>
     </div>
 
     <div class="controls-info">
@@ -56,6 +66,18 @@
         </div>
         <p id="autoFollowStatus">Auto-Follow: OFF</p>
     </div>
+
+    <!-- MOBILE TOUCH CONTROLS OVERLAY -->
+    <div id="mobile-controls">
+        <div id="mobile-dpad">
+            <button id="mobile-left" class="mobile-control-btn">◀</button>
+            <button id="mobile-right" class="mobile-control-btn">▶</button>
+        </div>
+        <div id="mobile-action">
+            <button id="mobile-up" class="mobile-control-btn">▲</button>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

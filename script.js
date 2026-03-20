@@ -56,7 +56,6 @@ const initialAngleForBall = Math.atan2(ball.dy, ball.dx);
 ball.dx = ball.speed * Math.cos(initialAngleForBall);
 ball.dy = ball.speed * Math.sin(initialAngleForBall);
 
-
 // Bricks array
 let bricks = [];
 
@@ -132,7 +131,6 @@ function manageAutoSpeedIncrease() {
     }
 }
 
-
 function updateBallSpeedComponents() {
     const angle = Math.atan2(ball.dy, ball.dx);
     ball.dx = ball.speed * Math.cos(angle);
@@ -203,7 +201,6 @@ function ensureNonHorizontal(dx, dy) {
     }
     return [dx, dy];
 }
-
 
 function sanityCheckBallPosition(dx, dy) {
     if (ball.x - ball.radius < 0) {
@@ -321,7 +318,6 @@ function drawCountdown() {
     ctx.fillText(`Final Score: ${score}`, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 20);
 }
 
-
 // --- COLLISION DETECTION ---
 function handleBrickCollisions() {
     for (let r = 0; r < BRICK_ROWS; r++) {
@@ -435,7 +431,6 @@ function handleGamepadInput() {
         gamepads[gp.index].prevButtonStates = gp.buttons.map(b => b.pressed);
     }
 }
-
 
 // --- GAME LOGIC ---
 function resetGame(keepScore = false, retainSpeed = null) {
@@ -568,7 +563,6 @@ function handleInput() {
         }
     }
 }
-
 
 // MODIFIED: This function now contains all paddle movement logic for correctness.
 function update() {
@@ -821,3 +815,111 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start the game
     resetGame();
 });
+
+// ==========================================================
+// --- FULLSCREEN & MOBILE CONTROLS LOGIC (APPENDED) ---
+// ==========================================================
+
+const mobileToggleBtn = document.getElementById('mobile-btn');
+const mobileControls = document.getElementById('mobile-controls');
+const mobileLeftBtn = document.getElementById('mobile-left');
+const mobileRightBtn = document.getElementById('mobile-right');
+const mobileUpBtn = document.getElementById('mobile-up');
+const screenElement = document.getElementById("screen");
+
+// --- 1. SCALING LOGIC ---
+function scaleGame() {
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+    
+    if (isFullscreen) {
+        // Base dimensions of the game canvas
+        const baseWidth = SCREEN_WIDTH;
+        const baseHeight = SCREEN_HEIGHT;
+        
+        // Calculate the scale to fit the window while maintaining aspect ratio
+        const scale = Math.min(
+            window.innerWidth / baseWidth,
+            window.innerHeight / baseHeight
+        );
+        
+        screenElement.style.transform = `scale(${scale})`;
+        document.body.classList.add('mobile-mode'); // Activates CSS lock
+    } else {
+        screenElement.style.transform = 'none'; 
+        document.body.classList.remove('mobile-mode');
+    }
+}
+
+// --- 2. FULLSCREEN TRIGGER ---
+function goFull() {
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+        el.requestFullscreen().catch(err => console.log(err));
+    } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+    }
+}
+
+// Listeners for resizing and fullscreen changes
+window.addEventListener("resize", scaleGame);
+window.addEventListener("fullscreenchange", scaleGame);
+window.addEventListener("webkitfullscreenchange", scaleGame);
+
+// Initial check
+scaleGame();
+
+// Button Listener
+if (mobileToggleBtn) {
+    mobileToggleBtn.addEventListener('click', goFull);
+}
+
+// --- 3. MOBILE CONTROLS LOGIC ---
+function setupMobileOverlayControls() {
+    if (!mobileControls) return;
+
+    // Helper to map touch/mouse events to our existing 'keysPressed' object
+    const addControlListener = (element, key, actionFn = null) => {
+        const pressKey = (e) => {
+            // Prevent default browser zooming/scrolling behavior
+            if(e.cancelable) e.preventDefault(); 
+            
+            // Auto-break AutoFollow if D-pad is used manually
+            if ((key === 'arrowleft' || key === 'arrowright') && autoFollowMode) {
+                toggleAutoFollow();
+            }
+            
+            keysPressed[key] = true;
+            if (actionFn) actionFn();
+        };
+        const releaseKey = (e) => {
+            if(e.cancelable) e.preventDefault();
+            keysPressed[key] = false;
+        };
+
+        // Touch Events
+        element.addEventListener('touchstart', pressKey, { passive: false });
+        element.addEventListener('touchend', releaseKey, { passive: false });
+        element.addEventListener('touchcancel', releaseKey, { passive: false });
+        
+        // Mouse Events (for testing on desktop)
+        element.addEventListener('mousedown', pressKey);
+        element.addEventListener('mouseup', releaseKey);
+        element.addEventListener('mouseleave', (e) => {
+            if (e.buttons === 1) { releaseKey(e); }
+        });
+    };
+
+    // Map Buttons to Existing Key Logic
+    addControlListener(mobileLeftBtn, 'arrowleft');   // Left movement mapped to left arrow logic
+    addControlListener(mobileRightBtn, 'arrowright'); // Right movement mapped to right arrow logic
+    
+    // Action mapped to spacebar logic (Teleport / Launch ball)
+    addControlListener(mobileUpBtn, ' ', () => {
+        const teleportResult = teleportBallToPaddle();
+        ball.dx = teleportResult[0];
+        ball.dy = teleportResult[1];
+    });
+}
+
+// Initialize overlay controls
+setupMobileOverlayControls();

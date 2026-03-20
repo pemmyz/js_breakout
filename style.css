@@ -1,84 +1,185 @@
+/* ROOT & BODY SETUP */
 body {
     font-family: 'Arial', sans-serif;
     display: flex;
     flex-direction: column;
     align-items: center;
     margin: 0;
-    padding-top: 20px;
+    padding-top: 5px; /* Tighter */
     background-color: #2c3e50; /* Dark blue-gray */
     color: #ecf0f1; /* Light gray */
     min-height: 100vh;
-    overflow-x: hidden; /* Prevent horizontal scrollbars if gameArea is too wide for small screens */
+    overflow-x: hidden; /* Prevent horizontal scrollbars if gameArea is too wide */
+}
+
+/* --- MOBILE MODE LOCK --- */
+body.mobile-mode {
+    overflow: hidden; /* Disables scrollbars */
+    touch-action: none; /* Disables browser gestures */
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    padding-top: 0;
+    justify-content: center; /* Centered layout for game container */
+    background-color: #000;
+}
+
+body.mobile-mode h1,
+body.mobile-mode .controls-info {
+    display: none; /* Hide UI bloat in fullscreen */
+}
+
+/* --- THE SCREEN (Fixed Internal Resolution) --- */
+#game-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 10px; /* Tighter */
+}
+
+#screen {
+    width: 800px;  /* Base Width (matches original canvas width) */
+    height: 600px; /* Base Height (matches original canvas height) */
+    position: relative;
+    overflow: hidden;
+    transform-origin: center center;
+    flex-shrink: 0;
 }
 
 h1 {
     color: #e74c3c; /* Reddish */
-    margin-bottom: 15px;
+    margin-top: 0;
+    margin-bottom: 5px; /* Tighter */
+    font-size: 1.6em; /* Slightly smaller for tighter layout */
 }
 
 #gameArea {
-    position: relative; /* For absolute positioning of touch controls */
-    width: 800px; /* Should match canvas width */
-    height: 600px; /* Should match canvas height */
-    margin-bottom: 20px; /* Space before controls-info */
+    position: absolute; /* Changed to fill the scaled screen completely */
+    top: 0;
+    left: 0;
+    width: 100%; 
+    height: 100%; 
 }
 
 canvas {
-    display: block; /* Removes extra space below canvas if it's inline */
-    border: 3px solid #ecf0f1; /* Light gray border */
-    background-color: #000000; /* Black background */
+    display: block; 
+    border: 3px solid #ecf0f1; 
+    background-color: #000000; 
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
     border-radius: 5px;
-    /* width and height are set by JS */
+    box-sizing: border-box; /* Ensures the 3px border doesn't push width over 800px */
+    width: 100%;
+    height: 100%;
 }
 
+body.mobile-mode canvas {
+    border: none;
+    border-radius: 0;
+}
+
+/* --- TOGGLE BUTTON --- */
+#mobile-btn {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 2000;
+    background: #34495e;
+    color: white;
+    border: 1px solid #7f8c8d;
+    border-radius: 5px;
+    font-size: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+#mobile-btn:hover { background: #4A5B6A; }
+body.mobile-mode #mobile-btn { display: none; } /* Hide the button when in mobile mode */
+
+/* --- MOBILE CONTROLS OVERLAY --- */
+#mobile-controls {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; /* Let clicks pass through to empty space */
+    z-index: 3000;
+    display: none; /* Hidden by default */
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Show controls only when in mobile mode */
+body.mobile-mode #mobile-controls { display: flex; }
+
+/* --- CONTROL BUTTONS --- */
+.mobile-control-btn {
+    pointer-events: auto; /* Re-enable clicks for buttons */
+    width: 80px; height: 80px; /* Reduced slightly for comfort */
+    background: rgba(255,255,255,0.15);
+    border: 3px solid rgba(255,255,255,0.4);
+    border-radius: 50%;
+    color: white;
+    font-size: 35px;
+    display: flex; justify-content: center; align-items: center;
+    user-select: none;
+    backdrop-filter: blur(4px);
+    margin-bottom: 20px;
+    transition: transform 0.1s, background 0.1s;
+    -webkit-tap-highlight-color: transparent;
+}
+.mobile-control-btn:active {
+    background: rgba(255,255,255,0.4);
+    transform: scale(0.95);
+}
+
+#mobile-dpad {
+    display: flex;
+    gap: 15px;
+    margin-left: 10px;
+}
+#mobile-action {
+    margin-right: 10px;
+}
+
+/* ORIGINAL TOUCH CONTROLS (IN GAME AREA) */
 .touch-control {
     position: absolute;
-    width: 70px;  /* Width of the touch button */
-    height: 60px; /* Height of the touch button */
-    bottom: 15px; /* Position from the bottom of gameArea */
-    background-color: rgba(128, 128, 128, 0.35); /* Grey with 35% opacity for the background itself */
+    width: 70px;  
+    height: 60px; 
+    bottom: 15px; 
+    background-color: rgba(128, 128, 128, 0.35); 
     z-index: 10;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.5em; /* Size of the arrow characters, adjust as needed */
-    color: rgba(255, 255, 255, 0.6); /* Arrows are 60% opaque white */
+    font-size: 2.5em; 
+    color: rgba(255, 255, 255, 0.6); 
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
     -webkit-tap-highlight-color: transparent;
-    opacity: 1; /* Element itself is fully opaque initially, controlled by .hidden class */
-    border-radius: 4px; /* Rounded corners for the small buttons */
-    transition: background-color 0.2s ease, opacity 0.3s ease, transform 0.3s ease; /* Added transform */
+    opacity: 1; 
+    border-radius: 4px; 
+    transition: background-color 0.2s ease, opacity 0.3s ease, transform 0.3s ease; 
 }
-
 .touch-control.hidden {
     opacity: 0;
-    pointer-events: none; /* Crucial: makes them non-interactive when hidden */
-    transform: translateY(10px); /* Optional: slight move down when hiding */
+    pointer-events: none; 
+    transform: translateY(10px); 
 }
+#touchControlLeft { left: 15px; }
+#touchControlLeft:hover, #touchControlLeft:active { background-color: rgba(128, 128, 128, 0.5); }
+#touchControlRight { right: 15px; }
+#touchControlRight:hover, #touchControlRight:active { background-color: rgba(128, 128, 128, 0.5); }
 
-#touchControlLeft {
-    left: 15px; /* Position from the left of gameArea */
-}
-#touchControlLeft:hover, #touchControlLeft:active {
-    background-color: rgba(128, 128, 128, 0.5);
-}
-
-
-#touchControlRight {
-    right: 15px; /* Position from the right of gameArea */
-}
-#touchControlRight:hover, #touchControlRight:active {
-    background-color: rgba(128, 128, 128, 0.5);
-}
-
-
+/* CONTROLS INFO SECTION */
 .controls-info {
-    padding: 15px;
+    padding: 10px 15px; /* Tighter */
     background-color: #34495e;
     border-radius: 8px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
@@ -86,92 +187,61 @@ canvas {
     max-width: 780px;
     text-align: left;
 }
-
 .controls-info h2 {
     margin-top: 0;
+    margin-bottom: 10px;
     color: #e74c3c;
     border-bottom: 1px solid #7f8c8d;
     padding-bottom: 5px;
+    font-size: 1.3em; /* Tighter */
 }
-
 .gamepad-info {
-    background-color: #2c3e50; /* A slightly different shade */
+    background-color: #2c3e50; 
     border: 1px solid #7f8c8d;
-    padding: 10px;
-    margin-bottom: 15px;
+    padding: 8px; /* Tighter */
+    margin-bottom: 10px; /* Tighter */
     border-radius: 5px;
 }
-
 .gamepad-info p {
     margin: 0;
-    font-size: 0.9em;
-    color: #bdc3c7; /* Lighter text color */
+    font-size: 0.85em; /* Tighter */
+    color: #bdc3c7; 
 }
-
-.gamepad-info strong {
-    color: #1abc9c; /* Teal color */
-}
-
-
+.gamepad-info strong { color: #1abc9c; }
 #autoFollowStatus {
-    margin-top: 10px;
+    margin-top: 8px;
+    margin-bottom: 0;
     font-weight: bold;
     color: #1abc9c;
 }
-
-.button-controls-container {
-    margin-top: 15px;
-}
-
-.button-row {
-    margin-bottom: 12px;
-}
-
+.button-controls-container { margin-top: 10px; }
+.button-row { margin-bottom: 8px; /* Tighter */ }
 .control-description {
     display: block;
-    margin-bottom: 6px;
-    font-size: 0.95em;
+    margin-bottom: 4px;
+    font-size: 0.9em;
     color: #ecf0f1;
 }
-
-.control-description strong {
-    color: #f1c40f;
-}
-
+.control-description strong { color: #f1c40f; }
 .action-buttons {
     display: flex;
     gap: 8px;
 }
-
-.action-buttons button {
-    flex-grow: 1;
-}
-
+.action-buttons button { flex-grow: 1; }
 .button-controls-container button {
     background-color: #5D6D7E;
     color: #ecf0f1;
     border: 1px solid #7F8C8D;
-    padding: 10px 15px;
+    padding: 8px 12px; /* Tighter */
     border-radius: 5px;
     cursor: pointer;
-    font-size: 0.9em;
+    font-size: 0.85em; /* Tighter */
     font-family: 'Arial', sans-serif;
     transition: background-color 0.2s ease, transform 0.1s ease;
     box-sizing: border-box;
     text-align: center;
     width: 100%;
 }
-
-.button-controls-container button:hover {
-    background-color: #718497;
-}
-
-.button-controls-container button:active {
-    background-color: #4A5B6A;
-    transform: translateY(1px);
-}
-
-.button-controls-container button strong {
-    color: #f1c40f;
-    margin-right: 5px;
-}
+.button-controls-container button:hover { background-color: #718497; }
+.button-controls-container button:active { background-color: #4A5B6A; transform: translateY(1px); }
+.button-controls-container button strong { color: #f1c40f; margin-right: 5px; }
